@@ -26,6 +26,7 @@ Avunculus is a web application for recording, researching and sharing family his
 - User interface in **English and German**.
 
 This software is licensed under the GNU Affero General Public License v3 or later. See [LICENSE](LICENSE) for the full text.
+The web interface bundles open-source libraries under MIT, BSD and ISC licenses; their notices are collected in `THIRD-PARTY-LICENSES.txt` (in the release archive and linked in the app's footer). If you run a modified version on a public server, the AGPL requires you to offer its source code to your users: set `SOURCE_URL` in `frontend/src/about.js` to your repository.
 
 ## Getting started
 

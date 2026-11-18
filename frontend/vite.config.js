@@ -1,11 +1,16 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { readFileSync } from 'node:fs'
 
 // Build landet in ../public – von dort liefert router.php die App aus.
 // Im Dev-Modus (npm run dev) werden /api-Aufrufe an den PHP-Server weitergereicht:
 //   php -S localhost:8000 router.php
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    // Versionsnummer für die Fußzeile (src/about.js)
+    __APP_VERSION__: JSON.stringify(readFileSync(new URL('../VERSION', import.meta.url), 'utf8').trim()),
+  },
   base: './',   // relative Pfade: läuft im Hauptordner einer Domain wie in einem Unterordner
   server: {
     proxy: {

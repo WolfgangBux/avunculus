@@ -1,6 +1,9 @@
 export default {
   app: {
     tagline: 'Genealogy',
+    source:     'Source code',
+    license:    'License: AGPL-3.0',
+    thirdParty: 'Licenses of included libraries',
   },
   nav: {
     tree:    'Family tree',

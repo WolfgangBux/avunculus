@@ -24,6 +24,8 @@ echo "Building $NAME"
 rm -rf "$STAGE" "dist/$NAME.zip"
 mkdir -p "$STAGE/database"
 cp -r public router.php .htaccess README.md LICENSE "$STAGE/"
+# licenses of the bundled npm packages (written by the frontend build); also reachable in the app
+cp public/THIRD-PARTY-LICENSES.txt "$STAGE/"
 cp database/schema.sql "$STAGE/database/"
 # backend without local credentials
 rsync -a --exclude '.env' backend/ "$STAGE/backend/"

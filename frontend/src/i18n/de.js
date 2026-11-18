@@ -1,6 +1,9 @@
 export default {
   app: {
     tagline: 'Ahnenforschung',
+    source:     'Quellcode',
+    license:    'Lizenz: AGPL-3.0',
+    thirdParty: 'Lizenzen verwendeter Bibliotheken',
   },
   nav: {
     tree:    'Stammbaum',

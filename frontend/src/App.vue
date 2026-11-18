@@ -41,6 +41,7 @@ import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel } from '.
 import { useNotify } from './composables/feedback.js'
 import { useHashRoute } from './composables/hashRoute.js'
 import { useFileMenu, useUserMenu } from './composables/appMenus.js'
+import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
@@ -391,6 +392,7 @@ export default defineComponent({
 
     return {
       updateAvailable,
+      SOURCE_URL, APP_VERSION, LICENSES_URL,
       t, locale, setLocale, availableLocales,
       user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, userMenu, userMenuItems, onLoggedIn,
       view, treeRootId, startPersonId, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
@@ -595,6 +597,13 @@ export default defineComponent({
     </div>
   </div>
 </main>
+
+<footer class="app-footer">
+  <span>Avunculus {{ APP_VERSION }}</span>
+  <a :href="SOURCE_URL" target="_blank" rel="noopener">{{ t('app.source') }}</a>
+  <a :href="SOURCE_URL + '/blob/main/LICENSE'" target="_blank" rel="noopener">{{ t('app.license') }}</a>
+  <a :href="LICENSES_URL" target="_blank" rel="noopener">{{ t('app.thirdParty') }}</a>
+</footer>
 
 <FamilyModal
   v-if="familyPerson"
