@@ -1,0 +1,3 @@
+# Das Backend wird nur über router.php aufgerufen (siehe .htaccess im Hauptordner) –
+# direkt darf hier nichts abrufbar sein, vor allem nicht backend/.env.
+Require all denied

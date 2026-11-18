@@ -1,0 +1,21 @@
+node_modules/
+# Build-Ausgabe von frontend/ (npm run build)
+/public/
+
+# Mediendateien (MEDIA_DIR)
+/data/
+
+# Private Docker-Einbindung (nur lokal, nicht im Repo)
+/compose.yml
+/.docker/
+/.env
+/.env.example
+
+# lokale Zugangsdaten des Backends (Vorlage: backend/.env.example)
+/backend/.env
+
+# Release-Archive (scripts/build-release.sh)
+/dist/
+
+# Lokale Einstellungen von Claude Code
+/.claude/settings.local.json

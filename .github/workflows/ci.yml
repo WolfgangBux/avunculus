@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+  php:
+    name: PHP ${{ matrix.php }} syntax
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4', '8.5']   # oldest supported up to the newest release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: none
+      # php -l succeeds even when it reports deprecations, so fail on any output besides "No syntax errors"
+      - run: |
+          status=0
+          for f in router.php $(find backend -name '*.php'); do
+            out=$(php -d error_reporting=-1 -d display_errors=1 -l "$f" 2>&1)
+            if [ "$out" != "No syntax errors detected in $f" ]; then echo "$out"; status=1; fi
+          done
+          exit $status
+      - run: php scripts/check-schema-version.php
+        if: matrix.php == '8.3'

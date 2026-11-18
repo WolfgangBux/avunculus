@@ -1,0 +1,22 @@
+{
+  "name": "avunculus-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openvue/themes": "1.1.1",
+    "leaflet": "1.9.4",
+    "openvue": "1.1.1",
+    "primeicons": "7.0.0",
+    "vue": "3.5.45"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.2.4",
+    "vite": "5.4.21"
+  }
+}

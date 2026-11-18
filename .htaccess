@@ -1,0 +1,16 @@
+# Avunculus auf einem Apache-Webhosting: jede Anfrage geht an router.php
+# (/api/* ans Backend, sonst Dateien aus public/ bzw. index.html).
+# So werden backend/.env, data/, database/ usw. nie direkt ausgeliefert.
+
+Options -Indexes
+DirectoryIndex router.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^ router.php [END]
+</IfModule>
+
+# Ohne mod_rewrite lieber gar nichts ausliefern als Zugangsdaten
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>
