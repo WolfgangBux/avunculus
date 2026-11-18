@@ -10,10 +10,10 @@ jobs:
     name: Build frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --no-audit --no-fund
@@ -28,7 +28,7 @@ jobs:
       matrix:
         php: ['8.1', '8.2', '8.3', '8.4', '8.5']   # oldest supported up to the newest release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
