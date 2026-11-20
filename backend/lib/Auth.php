@@ -11,6 +11,11 @@ declare(strict_types=1);
  *
  * Die Session wird nur gelesen und sofort wieder freigegeben (read_and_close), damit lange
  * Anfragen (Import, Export) parallele Anfragen nicht blockieren.
+ *
+ * Sitzungsdateien liegen in data/sessions/ (nicht im gemeinsamen tmp-Ordner des Hosters, wo fremde
+ * Aufräumroutinen sie nach 24 Minuten löschen würden). Schickt ein Browser eine Sitzungsnummer, die es
+ * nicht (mehr) gibt, wird die dafür angelegte leere Datei sofort wieder gelöscht und das Cookie entfernt –
+ * sonst legte jede der vielen gleichzeitigen Anfragen eines Seitenaufrufs eine eigene leere Datei an.
  */
 final class Auth
 {
@@ -27,7 +32,7 @@ final class Auth
         if (!isset($_COOKIE[self::SESSION_NAME])) return;   // Besucher bekommen keine Session
         session_start(['read_and_close' => true]);
         $uid = (int) ($_SESSION['uid'] ?? 0);
-        if ($uid <= 0) return;
+        if ($uid <= 0) { self::discard(); return; }
         $stmt = $db->prepare('SELECT id, username, display_name, role FROM users WHERE id = ?');
         $stmt->execute([$uid]);
         self::$user = $stmt->fetch() ?: null;
@@ -82,8 +87,24 @@ final class Auth
             $_SESSION = [];
             session_destroy();
         }
-        setcookie(self::SESSION_NAME, '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+        self::expireCookie();
         self::$user = null;
+    }
+
+    /** Ungültige oder abgelaufene Sitzung: die eben angelegte leere Datei löschen, Cookie entfernen */
+    private static function discard(): void
+    {
+        session_start();     // dieselbe (von PHP neu vergebene) Nummer wie eben, jetzt schreibbar
+        session_destroy();   // löscht die leere Datei
+        self::expireCookie();
+    }
+
+    /** Cookie im Browser löschen – mit demselben Pfad, mit dem es gesetzt wurde */
+    private static function expireCookie(): void
+    {
+        $params = session_get_cookie_params();
+        setcookie(self::SESSION_NAME, '', ['expires' => time() - 3600, 'path' => $params['path'],
+                                           'secure' => $params['secure'], 'httponly' => true, 'samesite' => 'Lax']);
     }
 
     /**
@@ -111,5 +132,18 @@ final class Auth
         ]);
         ini_set('session.use_strict_mode', '1');
         ini_set('session.gc_maxlifetime', (string) (14 * 86400));
+
+        // Eigener Ordner unter data/ (wie die Medien; router.php liefert ihn nie aus). Geht das nicht,
+        // bleibt es beim Ordner des Hosters. Aufgeräumt wird dann selbst: bei etwa jeder 100. Anmeldung.
+        if (ini_get('session.save_handler') === 'files') {
+            $dir = AppInfo::dataDir() . '/sessions';
+            if (is_dir($dir) || @mkdir($dir, 0700, true)) {
+                if (is_writable($dir)) {
+                    session_save_path($dir);
+                    ini_set('session.gc_probability', '1');
+                    ini_set('session.gc_divisor', '100');
+                }
+            }
+        }
     }
 }
