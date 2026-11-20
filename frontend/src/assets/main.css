@@ -101,7 +101,11 @@ button { font-family: inherit; }
   align-self: stretch;
   gap: .5rem;
   flex: 1;
+  min-width: 0;          /* darf schmaler werden als die Tabs … */
+  overflow-x: auto;      /* … dann scrollen nur die Tabs, nie die ganze Seite */
+  scrollbar-width: none;
 }
+.app-nav::-webkit-scrollbar { display: none; }
 
 .nav-tab {
   position: relative;
@@ -112,6 +116,8 @@ button { font-family: inherit; }
   cursor: pointer;
   font-size: .98rem;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color .15s;
 }
 
@@ -155,6 +161,20 @@ button { font-family: inherit; }
 .lang-btn:hover  { color: var(--color-text); }
 .lang-btn.active { background: var(--color-surface); color: var(--color-primary); box-shadow: var(--shadow-sm); }
 
+/* Englische Beschriftungen sind länger: auf mittleren Breiten enger, dann ohne Unterzeile am Logo */
+@media (max-width: 1500px) {
+  .app-header { gap: 1.25rem; }
+  .app-nav    { gap: .15rem; }
+  .nav-tab    { padding: 0 .7rem; }
+}
+@media (max-width: 1400px) {
+  /* Baum- und Benutzerknopf nur mit Symbol (Name als Tooltip), damit alle Tabs Platz haben */
+  .current-tree span, .app-header .user-btn span { display: none; }
+}
+@media (max-width: 1200px) {
+  .brand-text { display: none; }
+  .nav-tab    { padding: 0 .5rem; font-size: .93rem; }
+}
 @media (max-width: 700px) {
   .app-header      { gap: 1rem; padding: 0 1rem; }
   .brand-text      { display: none; }

@@ -438,12 +438,12 @@ export default defineComponent({
     <button :class="['nav-tab', { active: view === 'statistics' }]" @click="view = 'statistics'">{{ t('nav.statistics') }}</button>
   </nav>
 
-  <button v-if="currentTree" class="current-tree" v-tooltip.bottom="t('file.open')" @click="showOpen = true">
+  <button v-if="currentTree" class="current-tree" v-tooltip.bottom="currentTree.name + ' – ' + t('file.open')" :aria-label="currentTree.name + ' – ' + t('file.open')" @click="showOpen = true">
     <i class="pi pi-sitemap" />
     <span>{{ currentTree.name }}</span>
   </button>
 
-  <button v-if="user" class="user-btn" aria-haspopup="true" aria-controls="user-menu" @click="userMenu.toggle($event)">
+  <button v-if="user" class="user-btn" :title="userLabel(user)" :aria-label="userLabel(user)" aria-haspopup="true" aria-controls="user-menu" @click="userMenu.toggle($event)">
     <i :class="['pi', isAdmin ? 'pi-shield' : 'pi-user']" />
     <span>{{ userLabel(user) }}</span>
     <i class="pi pi-angle-down" />
