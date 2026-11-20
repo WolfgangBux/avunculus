@@ -22,7 +22,23 @@ final class DuplicateMatcher
     public const MIN_SCORE  = 50;   // ab hier: möglicher Treffer
     public const SURE_SCORE = 85;   // ab hier: sicherer Treffer (vorausgewählt)
 
-    private static ?Transliterator $translit = null;
+    private static ?object $translit = null;   // Transliterator (Erweiterung intl), falls vorhanden
+
+    /** Ersatz ohne intl: Buchstaben mit Akzenten aus Latin-1 und Latin Extended-A (Kleinbuchstaben genügen) */
+    private const ASCII = [
+        'à' => 'a', 'á' => 'a', 'â' => 'a', 'ã' => 'a', 'å' => 'a', 'ā' => 'a', 'ă' => 'a', 'ą' => 'a', 'æ' => 'ae',
+        'ç' => 'c', 'ć' => 'c', 'ĉ' => 'c', 'ċ' => 'c', 'č' => 'c', 'ď' => 'd', 'đ' => 'd', 'ð' => 'd',
+        'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e', 'ē' => 'e', 'ĕ' => 'e', 'ė' => 'e', 'ę' => 'e', 'ě' => 'e',
+        'ĝ' => 'g', 'ğ' => 'g', 'ġ' => 'g', 'ģ' => 'g', 'ĥ' => 'h', 'ħ' => 'h',
+        'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i', 'ĩ' => 'i', 'ī' => 'i', 'ĭ' => 'i', 'į' => 'i', 'ı' => 'i', 'ĳ' => 'ij',
+        'ĵ' => 'j', 'ķ' => 'k', 'ĺ' => 'l', 'ļ' => 'l', 'ľ' => 'l', 'ŀ' => 'l', 'ł' => 'l',
+        'ñ' => 'n', 'ń' => 'n', 'ņ' => 'n', 'ň' => 'n', 'ŉ' => 'n', 'ŋ' => 'n',
+        'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'õ' => 'o', 'ø' => 'o', 'ō' => 'o', 'ŏ' => 'o', 'ő' => 'o', 'œ' => 'oe',
+        'ŕ' => 'r', 'ŗ' => 'r', 'ř' => 'r', 'ś' => 's', 'ŝ' => 's', 'ş' => 's', 'š' => 's', 'ſ' => 's',
+        'ţ' => 't', 'ť' => 't', 'ŧ' => 't', 'þ' => 'th',
+        'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ũ' => 'u', 'ū' => 'u', 'ŭ' => 'u', 'ů' => 'u', 'ű' => 'u', 'ų' => 'u',
+        'ŵ' => 'w', 'ý' => 'y', 'ÿ' => 'y', 'ŷ' => 'y', 'ź' => 'z', 'ż' => 'z', 'ž' => 'z',
+    ];
 
     /** Kleinbuchstaben, Umlaute ausgeschrieben, Akzente und Satzzeichen entfernt */
     public static function normalize(?string $s): string
@@ -30,8 +46,12 @@ final class DuplicateMatcher
         if ($s === null || $s === '') return '';
         $s = mb_strtolower(trim($s));
         $s = strtr($s, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
-        self::$translit ??= Transliterator::create('Any-Latin; Latin-ASCII');
-        if (self::$translit) $s = self::$translit->transliterate($s);
+        if (class_exists(Transliterator::class)) {
+            self::$translit ??= Transliterator::create('Any-Latin; Latin-ASCII');
+            $s = self::$translit->transliterate($s);
+        } else {
+            $s = strtr($s, self::ASCII);   // ohne intl: die in europäischen Namen üblichen Akzente
+        }
         $s = preg_replace('/[^a-z0-9 ]+/', ' ', $s);
         return trim(preg_replace('/\s+/', ' ', $s));
     }

@@ -45,7 +45,9 @@ The green "Code → Download ZIP" button on GitHub gives you the source code ins
 | Database | MariaDB (developed with 11.4). MySQL 8 should work but is untested. |
 | Address | Its own (sub)domain, e.g. `https://genealogy.example.com/`, or a subfolder of an existing website, e.g. `https://example.com/genealogy/` |
 
-Required PHP extensions: `pdo_mysql`, `mbstring`, `gd`, `exif`, `zip`, `fileinfo`.
+Required PHP extensions: `pdo_mysql`, `mbstring`, `gd`, `exif`, `zip`, `fileinfo`. Recommended: `intl` (better matching of names in other alphabets when looking for duplicates).
+
+A PHP memory limit of 128 MB is enough to import a GEDCOM file with more than 50,000 people into a new tree. Merging a large file into a large existing tree needs more; Avunculus raises the limit for imports by itself where the host allows it.
 
 HTTPS is strongly recommended, because passwords are sent when logging in.
 

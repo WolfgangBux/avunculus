@@ -80,6 +80,12 @@ final class GedcomImporter
     private array $sources   = [];   // SOUR-xref  → id
     private array $persons   = [];   // INDI-xref  → id
     private array $skipped   = [];   // Tag → Anzahl
+
+    // Datensätze der Datei als Rohtext, je Datensatz eine Zeichenkette. Zerlegt wird erst bei Bedarf
+    // (record()), sonst bräuchte ein Baum mit 50.000 Personen weit über 1 GB Speicher.
+    private array $recTexts  = [];   // Index → Text des Datensatzes („0 @I1@ INDI …“ samt Unterzeilen)
+    private array $recTags   = [];   // Index → Tag der Ebene 0 (INDI, FAM, SOUR …)
+    private array $parsed    = [];   // Index → true, sobald unlesbare Zeilen darin gezählt sind
     private array $warnings  = [];
     private array $conflicts = [];
     private array $stats     = [
@@ -129,9 +135,9 @@ final class GedcomImporter
      */
     public function analyze(string $raw, int $treeId): array
     {
-        [$records, $header] = $this->load($raw);
+        $header = $this->load($raw);
 
-        $fileProfiles     = $this->fileProfiles($records);
+        $fileProfiles     = $this->fileProfiles();
         $existingProfiles = $this->existingProfiles($treeId);
         $matches          = (new DuplicateMatcher())->match($fileProfiles, $existingProfiles);
 
@@ -181,12 +187,8 @@ final class GedcomImporter
      */
     public function import(string $raw, int $treeId, array $mapping = [], bool $merge = false, ?string $zipPath = null): array
     {
-        [$records, $header] = $this->load($raw);
-        $records = array_map(fn($r) => match ($r['tag']) {
-            'INDI'  => $this->normalizeIndi($r),
-            'FAM'   => $this->normalizeFam($r),
-            default => $r,
-        }, $records);
+        $header = $this->load($raw);
+        unset($raw);   // nur die Kopie in diesem Aufruf; die Datensätze stehen in $recTexts
 
         $this->treeId = $treeId;
         $this->links  = new MediaLinks($this->db, $treeId);
@@ -211,20 +213,20 @@ final class GedcomImporter
             $stmt->execute([$treeId]);
             foreach ($stmt->fetchAll() as $rp) $this->repoNames[DuplicateMatcher::normalize($rp['name'])] ??= (int) $rp['id'];
         }
-        foreach ($records as $r) if ($r['tag'] === 'SOUR') $this->importSource($r, $treeId);
+        foreach ($this->records('SOUR') as $r) $this->importSource($r, $treeId);
         // Archive ohne Quelle trotzdem übernehmen
         foreach ($this->repos as $xref => $node) $this->repositoryFor($xref, $treeId);
-        foreach ($records as $r) if ($r['tag'] === 'INDI') $this->importPerson($r, $treeId);
+        foreach ($this->records('INDI') as $r) $this->importPerson($r, $treeId);
         $this->insertAssociations();
-        foreach ($records as $r) if ($r['tag'] === 'FAM')  $this->importFamily($r, $treeId);
+        foreach ($this->records('FAM') as $r)  $this->importFamily($r, $treeId);
         $this->insertAssociations();   // Beteiligte an Familienereignissen (Trauzeugen …)
-        foreach ($records as $r) if ($r['tag'] === 'INDI') $this->applyPedigree($r);
+        foreach ($this->records('INDI') as $r) $this->applyPedigree($r);
         $this->importPlaces($treeId);
         // Medien, auf die nichts verweist, trotzdem in die Mediathek übernehmen
         foreach (array_keys($this->objes) as $xref) $this->mediaFor(['tag' => 'OBJE', 'xref' => null, 'value' => $xref, 'children' => []]);
         $this->zip?->close();
 
-        $this->countUnused($records);
+        $this->countUnused();
         if ($this->mediaMissing > 0) {
             $this->warnings[] = $zipPath === null
                 ? "Die Datei verweist auf {$this->mediaMissing} Medien (OBJE). Medien werden nur übernommen, wenn sie "
@@ -250,17 +252,28 @@ final class GedcomImporter
 
     // ── Einlesen ──────────────────────────────────────────
 
-    /** @return array{0: list<array>, 1: array} Datensätze und Kopfdaten */
+    /**
+     * Datei in Datensätze teilen (Rohtext, siehe $recTexts) und Kopfdaten, Notizen, Archive usw. einlesen.
+     * @return array Kopfdaten
+     */
     private function load(string $raw): array
     {
         [$text, $charset] = $this->decode($raw);
-        $records = $this->parse($text);
+        unset($raw);
+        // an jeder Zeile der Ebene 0 teilen – die Zeilenumbrüche bleiben im Text, parse() kommt damit zurecht
+        $this->recTexts = preg_split('/(?:\r\n|\r|\n)(?=[ \t]*0[ \t])/', $text);
+        unset($text);
+        $this->recTags = $this->parsed = [];
+        foreach ($this->recTexts as $i => $chunk) {
+            $this->recTags[$i] = preg_match('/^\s*0\s+(?:@[^@\s]+@\s+)?([A-Za-z0-9_]+)/', $chunk, $m) ? strtoupper($m[1]) : '';
+        }
 
-        if (!$records || $records[0]['tag'] !== 'HEAD') {
+        $first = array_key_first(array_filter($this->recTags, fn($t) => $t !== ''));
+        $head  = $first !== null ? $this->record($first) : null;
+        if (!$head || $head['tag'] !== 'HEAD') {
             throw new InvalidArgumentException('Die Datei ist keine GEDCOM-Datei (Kopfzeile „0 HEAD“ fehlt).');
         }
 
-        $head   = $records[0];
         $header = [
             'version' => $this->value($this->child($this->child($head, 'GEDC'), 'VERS')),
             'source'  => $this->value($this->child($this->child($head, 'SOUR'), 'NAME'))
@@ -268,14 +281,37 @@ final class GedcomImporter
             'charset' => $charset,
         ];
 
-        foreach ($records as $r) {
-            if ($r['tag'] === 'NOTE' && $r['xref']) $this->notes[$r['xref']] = $this->fullText($r);
-            if ($r['tag'] === 'REPO' && $r['xref']) $this->repos[$r['xref']] = $r;
-            if ($r['tag'] === '_LOC' && $r['xref']) $this->locs[$r['xref']] = $r;
-            if ($r['tag'] === 'OBJE' && $r['xref']) $this->objes[$r['xref']] = $r;
+        foreach ($this->records('NOTE', 'REPO', '_LOC', 'OBJE') as $r) {
+            if (!$r['xref']) continue;
+            if ($r['tag'] === 'NOTE') $this->notes[$r['xref']] = $this->fullText($r);
+            if ($r['tag'] === 'REPO') $this->repos[$r['xref']] = $r;
+            if ($r['tag'] === '_LOC') $this->locs[$r['xref']]  = $r;
+            if ($r['tag'] === 'OBJE') $this->objes[$r['xref']] = $r;
         }
 
-        return [$records, $header];
+        return $header;
+    }
+
+    /** Datensatz Nr. $i als Knotenbaum (INDI/FAM vereinheitlicht); null bei einem leeren Abschnitt */
+    private function record(int $i): ?array
+    {
+        $r = $this->parse($this->recTexts[$i], !isset($this->parsed[$i]))[0] ?? null;
+        $this->parsed[$i] = true;
+        return match ($r['tag'] ?? null) {
+            null    => null,
+            'INDI'  => $this->normalizeIndi($r),
+            'FAM'   => $this->normalizeFam($r),
+            default => $r,
+        };
+    }
+
+    /** Datensätze mit diesen Tags (ohne Angabe: alle) nacheinander als Knotenbaum */
+    private function records(string ...$tags): Generator
+    {
+        foreach ($this->recTags as $i => $tag) {
+            if ($tags && !in_array($tag, $tags, true)) continue;
+            if ($r = $this->record($i)) yield $r;
+        }
     }
 
     /** @return array{0: string, 1: string} UTF-8-Text und erkannter Zeichensatz */
@@ -306,8 +342,11 @@ final class GedcomImporter
         return [mb_convert_encoding($raw, 'UTF-8', 'Windows-1252'), $declared];
     }
 
-    /** Zerlegt die Datei in verschachtelte Knoten [tag, xref, value, children]. */
-    private function parse(string $text): array
+    /**
+     * Zerlegt Text in verschachtelte Knoten [tag, xref, value, children].
+     * $countSkips: unlesbare Zeilen melden (nur beim ersten Zerlegen eines Datensatzes, sonst doppelt gezählt)
+     */
+    private function parse(string $text, bool $countSkips = true): array
     {
         $nodes = [];   // flache Liste; 'kids' enthält Indizes
         $roots = [];
@@ -319,7 +358,7 @@ final class GedcomImporter
                 // Zeile ohne Ebenennummer: echter Zeilenumbruch im Text (z. B. MyHeritage) → Fortsetzung des vorigen Werts
                 if ($nodes && !preg_match('/^\s*\d+(\s|$)/', $line)) {
                     $nodes[array_key_last($nodes)]['value'] .= "\n" . trim($line);
-                } else {
+                } elseif ($countSkips) {
                     $this->skip('(unlesbare Zeile)');
                 }
                 continue;
@@ -419,7 +458,7 @@ final class GedcomImporter
      * Direkt unter INDI/FAM gelten die dort verarbeiteten Tags, darunter KNOWN_SUBTAGS.
      * Kopf- und Einsenderdaten werden nicht geprüft; unter einem nicht übernommenen Tag wird nicht weiter gezählt.
      */
-    private function countUnused(array $records): void
+    private function countUnused(): void
     {
         $sub  = array_flip(self::KNOWN_SUBTAGS);
         $indi = array_flip([...GedcomTags::personTypes(), ...self::INDI_HANDLED]);
@@ -431,7 +470,7 @@ final class GedcomImporter
                 elseif (!in_array($c['tag'], self::OPAQUE_TAGS, true)) $walk($c, $sub);
             }
         };
-        foreach ($records as $r) {
+        foreach ($this->records() as $r) {
             match ($r['tag']) {
                 'HEAD', 'TRLR', 'SUBM', 'SUBN'         => null,
                 'INDI'                                 => $walk($r, $indi),
@@ -701,11 +740,10 @@ final class GedcomImporter
     }
 
     /** Profile aller Personen der Datei (Schlüssel = xref) */
-    private function fileProfiles(array $records): array
+    private function fileProfiles(): array
     {
         $parents = $spouses = [];
-        foreach ($records as $r) {
-            if ($r['tag'] !== 'FAM') continue;
+        foreach ($this->records('FAM') as $r) {
             $h = $this->value($this->child($r, 'HUSB')) ?: null;
             $w = $this->value($this->child($r, 'WIFE')) ?: null;
             foreach ($this->children($r, 'CHIL') as $c) $parents[$this->value($c)] ??= [$h, $w];
@@ -713,8 +751,8 @@ final class GedcomImporter
         }
 
         $profiles = [];
-        foreach ($records as $r) {
-            if ($r['tag'] !== 'INDI' || !$r['xref']) continue;
+        foreach ($this->records('INDI') as $r) {
+            if (!$r['xref']) continue;
 
             $names = [];
             $display = null;

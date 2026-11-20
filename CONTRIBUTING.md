@@ -21,7 +21,7 @@ Smaller pull requests that do one thing are easier to review than large ones.
 You need:
 
 - [Git](https://git-scm.com/)
-- PHP 8.1 or later (8.3 or later recommended) with `pdo_mysql`, `mbstring`, `gd`, `exif`, `zip` and `fileinfo`
+- PHP 8.1 or later (8.3 or later recommended) with `pdo_mysql`, `mbstring`, `gd`, `exif`, `zip` and `fileinfo` (`intl` recommended)
 - MariaDB
 - [Node.js](https://nodejs.org/) 18 or later
 

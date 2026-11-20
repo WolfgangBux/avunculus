@@ -68,7 +68,7 @@ class TreeController extends BaseController
     {
         $this->findOrFail($id);
         $tree = $this->fetchTrees($id)[0];
-        set_time_limit(0);
+        self::longRunning();
         if (!empty($_GET['media'])) { $this->exportZip($id, $tree['name']); return; }
 
         $file = GedcomExporter::fileName($tree['name']);
@@ -112,7 +112,7 @@ class TreeController extends BaseController
         $name = $this->validName($data['name'] ?? '');
         if ($name === null) return;
 
-        set_time_limit(0);
+        self::longRunning();
         $rel = Relatives::collect($this->db, $id, $personId);
         $ged = tempnam(sys_get_temp_dir(), 'avunculus-extract-');
         $zipFile = $ged . '.zip';
@@ -255,7 +255,7 @@ class TreeController extends BaseController
         if (empty($_GET['final'])) {
             $this->json(['received' => filesize($file)]); return;
         }
-        set_time_limit(0);   // viele Mediendateien zu übernehmen kann dauern
+        self::longRunning();   // viele Mediendateien zu übernehmen kann dauern
 
         // Import in bestehenden Baum: erst Dubletten suchen
         if (isset($_GET['target'])) {
@@ -337,7 +337,7 @@ class TreeController extends BaseController
         } catch (InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 422); return;
         }
-        set_time_limit(0);
+        self::longRunning();
         $this->db->beginTransaction();
         try {
             $result = (new GedcomImporter($this->db))->import($raw, $targetId, $mapping, true, $this->zipPath($file));
@@ -407,6 +407,18 @@ class TreeController extends BaseController
         } finally {
             $zip->close();
         }
+    }
+
+    /**
+     * Für Import, Export und Verwandten-Baum: keine Zeitgrenze und mehr Speicher, soweit der Hoster es erlaubt.
+     * Ein frischer Import kommt auch mit 128 MB aus; das Zusammenführen großer Bäume braucht mehr.
+     */
+    private static function longRunning(): void
+    {
+        @set_time_limit(0);
+        $limit = ini_get('memory_limit');
+        $bytes = static fn(string $v): int => (int) $v * match (strtolower(substr(trim($v), -1))) { 'g' => 1 << 30, 'm' => 1 << 20, 'k' => 1 << 10, default => 1 };
+        if ($limit !== false && $limit !== '-1' && $bytes($limit) < 512 << 20) @ini_set('memory_limit', '512M');
     }
 
     private function uploadPath(string $token): string
