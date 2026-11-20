@@ -10,10 +10,12 @@ import Message from 'openvue/message'
 import { fetchTrees, uploadGedcom, commitGedcom } from '../api/trees.js'
 import { sexClass, displayDate } from '../format.js'
 import { t } from '../i18n/index.js'
+import { useNotify } from '../composables/feedback.js'
 
 const visible = defineModel('visible', { type: Boolean, default: false })
 const props   = defineProps({ currentTreeId: { type: Number, default: null } })
 const emit    = defineEmits(['open', 'imported'])
+const notify  = useNotify()
 
 const PAGE = 20
 
@@ -76,24 +78,34 @@ const onProgress = next => p => {
   if (p.importing) phase.value = next
 }
 
+// Abbrechen geht beim Hochladen und während der Dublettenprüfung (die schreibt nichts).
+// Der Import selbst läuft auf dem Server in einem Rutsch – ein Abbruch im Browser hielte ihn nicht auf.
+let controller = null
+const canCancel = computed(() => phase.value === 'upload' || phase.value === 'analyze')
+function cancelUpload() { controller?.abort() }
+
 async function start() {
   if (!file.value) { error.value = t('gedcom.noFile'); return }
   if (mode.value === 'existing' && !targetId.value) { error.value = t('gedcom.noTarget'); return }
   error.value = ''
   phase.value = 'upload'
+  controller  = new AbortController()
   try {
     if (mode.value === 'new') {
-      result.value = await uploadGedcom(file.value, { name: name.value.trim() || file.value.name }, onProgress('import'))
+      result.value = await uploadGedcom(file.value, { name: name.value.trim() || file.value.name }, onProgress('import'), controller.signal)
       finish()
     } else {
-      analysis.value = await uploadGedcom(file.value, { treeId: targetId.value }, onProgress('analyze'))
+      analysis.value = await uploadGedcom(file.value, { treeId: targetId.value }, onProgress('analyze'), controller.signal)
       for (const c of analysis.value.candidates) decisions[c.xref] = c.preselect ?? 0
       page.value  = 0
       phase.value = 'review'
     }
   } catch (e) {
-    error.value = e?.error || t('gedcom.failed')
+    error.value = e?.name === 'AbortError' ? '' : (e?.error || t('gedcom.failed'))
+    if (e?.name === 'AbortError') notify.info(t('gedcom.cancelled'))
     phase.value = 'select'
+  } finally {
+    controller = null
   }
 }
 
@@ -221,6 +233,7 @@ function openTree() {
       <p>{{ t('gedcom.phase.' + phase) }}</p>
       <ProgressBar v-if="phase === 'upload'" :value="uploaded" />
       <ProgressBar v-else mode="indeterminate" style="height: 6px" />
+      <p v-if="phase === 'import'" class="muted import-no-cancel">{{ t('gedcom.noCancel') }}</p>
     </div>
 
     <!-- 2. Prüfliste der möglichen Dubletten -->
@@ -334,6 +347,9 @@ function openTree() {
       <template v-else-if="phase === 'review'">
         <Button :label="t('action.cancel')" severity="secondary" outlined @click="visible = false" />
         <Button :label="t('gedcom.review.commit', { merge: mergeCount, created: newCount })" icon="pi pi-check" @click="commit" />
+      </template>
+      <template v-else-if="canCancel">
+        <Button :label="t('gedcom.cancelUpload')" icon="pi pi-times" severity="secondary" outlined @click="cancelUpload" />
       </template>
       <template v-else-if="phase === 'done'">
         <Button :label="t('action.close')" severity="secondary" outlined @click="visible = false" />

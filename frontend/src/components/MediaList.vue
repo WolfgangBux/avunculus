@@ -44,19 +44,24 @@ const fileInput = ref(null)
 const dragging  = ref(false)
 const uploading = ref(null)
 
+let controller = null
 async function upload(files) {
   const list = [...(files ?? [])]
   if (!list.length) return
+  controller = new AbortController()   // Abbrechen stoppt die laufende Datei und alle folgenden
   let last = null
   for (const [i, f] of list.entries()) {
+    if (controller.signal.aborted) break
     uploading.value = { name: f.name, progress: 0, index: i + 1, count: list.length }
     try {
-      last = await uploadMedia(f, p => { uploading.value = { ...uploading.value, progress: Math.round(p * 100) } })
+      last = await uploadMedia(f, p => { uploading.value = { ...uploading.value, progress: Math.round(p * 100) } }, controller.signal)
       if (last.duplicate) notify.success(t('media.duplicate', { title: last.title || last.original_name }))
     } catch (e) {
+      if (e?.name === 'AbortError') { notify.info(t('media.uploadCancelled')); break }
       notify.error(e?.error || t('media.uploadError', { name: f.name }))
     }
   }
+  controller = null
   uploading.value = null
   await reload()
   if (last) emit('uploaded', last)
@@ -86,6 +91,7 @@ function onDrop(e) { dragging.value = false; if (canEdit.value) upload(e.dataTra
     <div v-if="uploading" class="media-upload-progress">
       <span>{{ t('media.uploading', { name: uploading.name, n: uploading.index, total: uploading.count }) }}</span>
       <ProgressBar :value="uploading.progress" style="height: 6px" :show-value="false" />
+      <Button :label="t('action.cancel')" icon="pi pi-times" size="small" text severity="secondary" class="media-upload-cancel" @click="controller?.abort()" />
     </div>
 
     <p v-if="loading && !items.length" class="muted">{{ t('common.loading') }}</p>

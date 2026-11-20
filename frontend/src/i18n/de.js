@@ -792,6 +792,9 @@ export default {
     loadError:     'Stammbäume konnten nicht geladen werden.',
   },
   gedcom: {
+    cancelUpload: 'Hochladen abbrechen',
+    cancelled:    'Hochladen abgebrochen.',
+    noCancel:     'Die Daten werden jetzt auf dem Server übernommen – das lässt sich nicht mehr abbrechen.',
     modeNew: 'Neuer Stammbaum',
     modeExisting: 'In bestehenden Stammbaum',
     target: 'Importieren als',
@@ -899,6 +902,7 @@ export default {
     loadError:        'Familien konnten nicht geladen werden.',
   },
   media: {
+    uploadCancelled: 'Hochladen abgebrochen.',
     title:        'Medien',
     add:          'Medium hinzufügen',
     addHint:      'Aus der Mediathek wählen oder neue Datei hochladen – Dateien können auch direkt hierher gezogen werden',

@@ -32,5 +32,6 @@ export function useNotify() {
   return {
     success: summary => toast.add({ severity: 'success', summary, life: 4000 }),
     error:   summary => toast.add({ severity: 'error',   summary, life: 6000 }),
+    info:    summary => toast.add({ severity: 'info',    summary, life: 4000 }),
   }
 }

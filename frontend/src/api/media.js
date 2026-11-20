@@ -42,8 +42,9 @@ function randomToken() {
 /**
  * Datei stückweise hochladen und als Medium anlegen.
  * Liefert das Medium; duplicate = true, wenn die Datei schon in der Mediathek war.
+ * signal (AbortSignal): Abbrechen; wirft dann einen Fehler mit name = 'AbortError'.
  */
-export async function uploadMedia(file, onProgress = () => {}) {
+export async function uploadMedia(file, onProgress = () => {}, signal = undefined) {
   const token  = randomToken()
   const chunks = Math.max(1, Math.ceil(file.size / CHUNK))
   for (let i = 0; i < chunks; i++) {
@@ -53,6 +54,7 @@ export async function uploadMedia(file, onProgress = () => {}) {
     onProgress(i / chunks)
     const res = await fetch(apiUrl(`/media/upload?${params}`), {
       method:  'POST',
+      signal,
       headers: { 'Content-Type': 'application/octet-stream', 'X-Tree-Id': String(currentTreeId.value) },
       body:    file.slice(i * CHUNK, (i + 1) * CHUNK),
     })

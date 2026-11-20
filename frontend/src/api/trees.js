@@ -32,8 +32,9 @@ function randomToken() {
  *   target = { treeId } → Dublettenprüfung gegen bestehenden Baum (Ergebnis: Analyse mit upload-Token)
  * onProgress({ uploaded: 0…1, importing }) meldet vor jedem Stück den Stand;
  * importing = true heißt: letztes Stück unterwegs, der Server verarbeitet die Datei.
+ * signal (AbortSignal): Abbrechen; wirft dann einen Fehler mit name = 'AbortError'.
  */
-export async function uploadGedcom(file, target, onProgress = () => {}) {
+export async function uploadGedcom(file, target, onProgress = () => {}, signal = undefined) {
   const token  = randomToken()
   const chunks = Math.max(1, Math.ceil(file.size / CHUNK))
 
@@ -49,6 +50,7 @@ export async function uploadGedcom(file, target, onProgress = () => {}) {
     onProgress({ uploaded: i / chunks, importing: last })
     const res = await fetch(apiUrl(`/trees/import?${params}`), {
       method:  'POST',
+      signal,
       headers: { 'Content-Type': 'application/octet-stream' },
       body:    file.slice(i * CHUNK, (i + 1) * CHUNK),
     })

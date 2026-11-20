@@ -791,6 +791,9 @@ export default {
     loadError:     'Could not load family trees.',
   },
   gedcom: {
+    cancelUpload: 'Cancel upload',
+    cancelled:    'Upload cancelled.',
+    noCancel:     'The data is now being saved on the server – this can no longer be cancelled.',
     modeNew: 'New family tree',
     modeExisting: 'Into existing tree',
     target: 'Import as',
@@ -898,6 +901,7 @@ export default {
     loadError:        'Could not load families.',
   },
   media: {
+    uploadCancelled: 'Upload cancelled.',
     title:        'Media',
     add:          'Add media',
     addHint:      'Choose from the media library or upload a new file – files can also be dropped here',

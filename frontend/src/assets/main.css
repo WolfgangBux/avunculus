@@ -781,6 +781,7 @@ legend {
 .import-name { margin-top: 1rem; }
 .import-msg  { margin-top: .75rem; }
 
+.import-no-cancel { font-size: .78rem; margin-top: .6rem; }
 .import-progress { display: flex; flex-direction: column; gap: .75rem; padding: .5rem 0 1rem; }
 
 .import-stats {
@@ -1538,7 +1539,8 @@ html {
   background: var(--color-surface); color: var(--color-faint); font-size: .65rem; box-shadow: var(--shadow-sm);
 }
 .media-filter { min-width: 9rem; }
-.media-upload-progress { display: grid; gap: .3rem; font-size: .8rem; color: var(--color-muted); margin-bottom: .6rem; }
+.media-upload-progress { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .3rem .5rem; font-size: .8rem; color: var(--color-muted); margin-bottom: .6rem; }
+.media-upload-progress > span { grid-column: 1 / -1; }
 .media-empty {
   display: flex; flex-direction: column; align-items: center; gap: .4rem; text-align: center;
   padding: 2rem 1rem; border: 2px dashed var(--color-border-strong); border-radius: 10px; cursor: pointer;
