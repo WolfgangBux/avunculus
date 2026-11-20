@@ -19,3 +19,6 @@ node_modules/
 
 # Lokale Einstellungen von Claude Code
 /.claude/settings.local.json
+
+# Projekt-Homepage (eigenes Git-Repo)
+/homepage/

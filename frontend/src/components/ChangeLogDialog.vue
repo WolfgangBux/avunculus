@@ -22,20 +22,20 @@ const visible = computed({
   set: v => { if (!v) changeLogFilter.value = null },
 })
 
-const type   = ref('')
+const type   = ref('all')   // 'all' statt '' – die Auswahlliste zeigt '' als „nichts gewählt“
 const user   = ref(0)      // 0 = alle (null kann die Auswahlliste nicht als Wert zeigen)
 const entity = ref(null)    // { id, label } – nur dieser Datensatz (aus „Verlauf“ eines Formulars)
 const users  = ref([])
 
 const { query, items, total, loading, error, reload, loadMore } = usePagedSearch(async (q, opts) => {
-  const res = await fetchChanges({ q, type: type.value, id: entity.value?.id, user: user.value, ...opts })
+  const res = await fetchChanges({ q, type: type.value === 'all' ? '' : type.value, id: entity.value?.id, user: user.value, ...opts })
   if (res.users) users.value = res.users
   return res
 }, { pageSize: PAGE })
 
 watch(changeLogFilter, f => {
   if (!f) return
-  type.value   = f.type ?? ''
+  type.value   = f.type ?? 'all'
   entity.value = f.id ? { id: f.id, label: f.label ?? '' } : null
   user.value   = 0
   query.value  = ''
@@ -54,9 +54,9 @@ function toggleFields(c) {
   expanded.value = s
 }
 
-function clearEntity() { entity.value = null; type.value = ''; reload() }
+function clearEntity() { entity.value = null; type.value = 'all'; reload() }
 
-const typeOptions = computed(() => [{ value: '', label: t('changes.allTypes') },
+const typeOptions = computed(() => [{ value: 'all', label: t('changes.allTypes') },
   ...CHANGE_TYPES.map(v => ({ value: v, label: t('changes.types.' + v) }))])
 const userOptions = computed(() => [{ value: 0, label: t('changes.allUsers') },
   ...users.value.map(u => ({ value: u.id, label: u.name }))])
