@@ -67,7 +67,7 @@ function onClear()   { selected.value = null; emit('update:modelValue', '') }
 
 <style scoped>
 .search-option { display: flex; align-items: center; gap: .5rem; width: 100%; }
-.search-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--sex-fg, var(--sex-U-fg)); }
+.search-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--sex-fg, var(--sex-u-fg)); }
 .search-option-name  { flex: 1; }
 .search-option-years { font-size: .78rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
 </style>

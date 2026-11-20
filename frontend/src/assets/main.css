@@ -23,10 +23,12 @@
   --focus-ring:          0 0 0 3px rgba(232,100,27,.18);
 
   /* Geschlechter-Farben (Avatar, Karten, Chips) */
-  --sex-M-bg:     #d6ecf8;  --sex-M-fg: #4f9cc7;
-  --sex-F-bg:     #f9dcec;  --sex-F-fg: #d277a8;
-  --sex-X-bg:     #e7e2f6;  --sex-X-fg: #8f7dcc;
-  --sex-U-bg:     #e9ecef;  --sex-U-fg: #98a1ac;
+  /* Nur Kleinbuchstaben in Variablennamen: mod_pagespeed (z. B. bei Hetzner) schreibt sie beim Minimieren klein,
+     CSS unterscheidet aber Groß- und Kleinschreibung – sonst fehlen die Farben. */
+  --sex-m-bg:     #d6ecf8;  --sex-m-fg: #4f9cc7;
+  --sex-f-bg:     #f9dcec;  --sex-f-fg: #d277a8;
+  --sex-x-bg:     #e7e2f6;  --sex-x-fg: #8f7dcc;
+  --sex-u-bg:     #e9ecef;  --sex-u-fg: #98a1ac;
 
   /* Status */
   --color-error:         #d64535;
@@ -368,25 +370,25 @@ legend {
 .person-card:hover { background: var(--color-surface-alt); border-color: var(--color-border); }
 
 .person-card.selected {
-  background: var(--sex-bg, var(--sex-U-bg));
-  border-color: var(--sex-fg, var(--sex-U-fg));
-  box-shadow: 0 0 0 1px var(--sex-fg, var(--sex-U-fg));
+  background: var(--sex-bg, var(--sex-u-bg));
+  border-color: var(--sex-fg, var(--sex-u-fg));
+  box-shadow: 0 0 0 1px var(--sex-fg, var(--sex-u-fg));
 }
 
-.sex-M { --sex-bg: var(--sex-M-bg); --sex-fg: var(--sex-M-fg); }
-.sex-F { --sex-bg: var(--sex-F-bg); --sex-fg: var(--sex-F-fg); }
-.sex-X { --sex-bg: var(--sex-X-bg); --sex-fg: var(--sex-X-fg); }
-.sex-U { --sex-bg: var(--sex-U-bg); --sex-fg: var(--sex-U-fg); }
+.sex-M { --sex-bg: var(--sex-m-bg); --sex-fg: var(--sex-m-fg); }
+.sex-F { --sex-bg: var(--sex-f-bg); --sex-fg: var(--sex-f-fg); }
+.sex-X { --sex-bg: var(--sex-x-bg); --sex-fg: var(--sex-x-fg); }
+.sex-U { --sex-bg: var(--sex-u-bg); --sex-fg: var(--sex-u-fg); }
 
 .avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--sex-bg, var(--sex-U-bg));
-  color: var(--sex-fg, var(--sex-U-fg));
+  background: var(--sex-bg, var(--sex-u-bg));
+  color: var(--sex-fg, var(--sex-u-fg));
   border: 2px solid var(--color-surface);
-  box-shadow: 0 0 0 1px var(--sex-fg, var(--sex-U-fg));
+  box-shadow: 0 0 0 1px var(--sex-fg, var(--sex-u-fg));
   display: grid;
   place-items: end center;
   overflow: hidden;
@@ -507,8 +509,8 @@ legend {
   display: inline-flex;
   align-items: center;
   gap: .4rem;
-  background: var(--sex-bg, var(--sex-U-bg));
-  border-left: 4px solid var(--sex-fg, var(--sex-U-fg));
+  background: var(--sex-bg, var(--sex-u-bg));
+  border-left: 4px solid var(--sex-fg, var(--sex-u-fg));
   border-radius: var(--radius-sm);
   padding: .35rem .5rem .35rem .6rem;
   font-size: .82rem;
@@ -648,8 +650,8 @@ legend {
   align-items: center;
   gap: .6rem;
   padding: .45rem .55rem;
-  background: var(--sex-bg, var(--sex-U-bg));
-  border: 1px solid color-mix(in srgb, var(--sex-fg, var(--sex-U-fg)) 35%, transparent);
+  background: var(--sex-bg, var(--sex-u-bg));
+  border: 1px solid color-mix(in srgb, var(--sex-fg, var(--sex-u-fg)) 35%, transparent);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
@@ -660,8 +662,8 @@ legend {
 .tree-node:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .tree-node.kind-root {
-  border: 2px solid var(--sex-fg, var(--sex-U-fg));
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sex-fg, var(--sex-U-fg)) 22%, transparent), var(--shadow);
+  border: 2px solid var(--sex-fg, var(--sex-u-fg));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sex-fg, var(--sex-u-fg)) 22%, transparent), var(--shadow);
 }
 
 .avatar-sm { width: 36px; height: 36px; }
@@ -891,7 +893,7 @@ legend {
   padding: .75rem .85rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-top: 3px solid var(--sex-fg, var(--sex-U-fg));
+  border-top: 3px solid var(--sex-fg, var(--sex-u-fg));
   border-radius: var(--radius);
   box-shadow: 0 8px 28px rgba(16,24,40,.16), 0 2px 6px rgba(16,24,40,.08);
   font-size: .8rem;
@@ -1018,8 +1020,8 @@ legend {
 .dup-person {
   padding: .45rem .6rem;
   border-radius: var(--radius-sm);
-  background: var(--sex-bg, var(--sex-U-bg));
-  border-left: 4px solid var(--sex-fg, var(--sex-U-fg));
+  background: var(--sex-bg, var(--sex-u-bg));
+  border-left: 4px solid var(--sex-fg, var(--sex-u-fg));
   min-width: 0;
 }
 .dup-name { font-weight: 600; font-size: .85rem; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
@@ -1370,8 +1372,8 @@ html {
 .rel-chip {
   display: inline-flex; align-items: baseline; gap: .35rem;
   border: none; cursor: pointer; font: inherit;
-  background: var(--sex-bg, var(--sex-U-bg));
-  border-left: 3px solid var(--sex-fg, var(--sex-U-fg));
+  background: var(--sex-bg, var(--sex-u-bg));
+  border-left: 3px solid var(--sex-fg, var(--sex-u-fg));
   border-radius: var(--radius-sm);
   padding: .25rem .55rem;
   transition: box-shadow .12s, transform .12s;

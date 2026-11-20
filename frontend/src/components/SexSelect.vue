@@ -43,7 +43,7 @@ const VALUES = ['M', 'F', 'X', 'U']
 .sex-symbol {
   font-size: 1.45rem; line-height: 1; font-weight: 600;
   font-family: 'Segoe UI Symbol', 'Noto Sans Symbols', 'DejaVu Sans', system-ui, sans-serif;
-  color: var(--sex-fg, var(--sex-U-fg));
+  color: var(--sex-fg, var(--sex-u-fg));
 }
 .sex-U .sex-symbol { font-size: 1.15rem; }
 </style>

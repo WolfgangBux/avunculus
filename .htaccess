@@ -14,3 +14,9 @@ DirectoryIndex router.php
 <IfModule !mod_rewrite.c>
     Require all denied
 </IfModule>
+
+# mod_pagespeed (bei manchen Hostern, z. B. Hetzner, eingeschaltet) schreibt CSS beim Ausliefern um und
+# macht dabei Variablennamen klein – das zerstört Farben. Die Oberfläche ist ohnehin schon optimiert.
+<IfModule pagespeed_module>
+    ModPagespeed off
+</IfModule>
