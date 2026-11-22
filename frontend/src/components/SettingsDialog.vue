@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import Dialog from 'openvue/dialog'
 import Button from 'openvue/button'
 import InputText from 'openvue/inputtext'
+import Checkbox from 'openvue/checkbox'
 import { fetchSettings, saveSettings } from '../api/system.js'
 import { legalLinks, siteName } from '../auth.js'
 import { useNotify } from '../composables/feedback.js'
@@ -12,7 +13,7 @@ import { t } from '../i18n/index.js'
 const visible = defineModel('visible', { type: Boolean, default: false })
 const notify  = useNotify()
 
-const form    = ref({ site_name: '', imprint_url: '', privacy_url: '' })
+const form    = ref({ site_name: '', imprint_url: '', privacy_url: '', share_url: '' })
 const errors  = ref({})
 const loading = ref(false)
 
@@ -28,7 +29,7 @@ async function submit() {
   loading.value = true
   try {
     const saved = await saveSettings(form.value)
-    const { site_name, ...links } = saved
+    const { site_name, share_url, ...links } = saved
     siteName.value   = site_name ?? ''
     legalLinks.value = Object.fromEntries(Object.entries(links).filter(([, v]) => v))
     notify.success(t('settings.saved'))
@@ -66,6 +67,14 @@ async function submit() {
           :invalid="!!errors.privacy_url" />
         <small v-if="errors.privacy_url" class="error-msg">{{ t('settings.invalidUrl') }}</small>
       </div>
+      <!-- Adresse bei der Update-Abfrage mitteilen (bei öffentlichen Bäumen geschieht das ohnehin) -->
+      <div class="settings-share">
+        <label class="settings-check">
+          <Checkbox v-model="form.share_url" binary true-value="1" false-value="" input-id="set-share-url" />
+          <span>{{ t('settings.shareUrl') }}</span>
+        </label>
+        <small class="muted">{{ t('settings.shareUrlHint') }}</small>
+      </div>
       <button type="submit" hidden />
     </form>
     <template #footer>
@@ -79,4 +88,6 @@ async function submit() {
 .settings-form { display: flex; flex-direction: column; gap: 0.9rem; }
 .settings-form .form-group { margin: 0; }
 .settings-form .dialog-intro { margin-bottom: 0; }
+.settings-share { display: flex; flex-direction: column; gap: .3rem; padding-top: .6rem; border-top: 1px solid var(--color-border); }
+.settings-check { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
 </style>

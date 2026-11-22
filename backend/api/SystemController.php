@@ -19,7 +19,8 @@ class SystemController extends BaseController
         $this->json($out);
     }
 
-    // PUT /api/system/settings  –  body: { site_name?, imprint_url?, privacy_url? }  –  leer = kein Name bzw. kein Link
+    // PUT /api/system/settings  –  body: { site_name?, imprint_url?, privacy_url?, share_url? }
+    //   leer = kein Name bzw. kein Link; share_url '1' = Adresse bei der Update-Abfrage mitteilen
     public function saveSettings(): void
     {
         $data   = $this->body();
@@ -28,6 +29,10 @@ class SystemController extends BaseController
         foreach (Settings::EDITABLE as $name) {
             if (!array_key_exists($name, $data)) continue;
             $v = trim((string) $data[$name]);
+            if ($name === 'share_url') {
+                $values[$name] = in_array($v, ['1', 'true'], true) ? '1' : '';
+                continue;
+            }
             if ($name === 'site_name') {
                 // Klartext in einer Zeile (Vue gibt ihn als Text aus, nie als HTML)
                 $v = trim(preg_replace('/[\p{Cc}\p{Zl}\p{Zp}]+/u', ' ', $v) ?? '');

@@ -80,7 +80,7 @@ The `.htaccess` file sends every request through `router.php`, which only serves
 | `DB_USER`, `DB_PASS` | Database user and password | `root`, empty |
 | `MEDIA_DIR` | Where media files are stored (one subfolder per tree) | `data/media` in the installation folder |
 | `UPDATE_CHECK` | Check for new releases once a day (`0` to turn off) | `1` |
-| `USAGE_STATS` | Let the update check count this installation anonymously (`0` to turn off, see [External services](#external-services)) | `1` |
+| `USAGE_STATS` | Let the update check count this installation (`0` to turn off, see [External services](#external-services)) | `1` |
 
 Environment variables, where set, take precedence over `backend/.env`.
 
@@ -114,7 +114,7 @@ To turn off the update check, set `UPDATE_CHECK=0` in `backend/.env`. To keep it
 
 Map tiles are loaded by the browser from OpenStreetMap. The place matching tool queries Wikidata, and only when you use it. Places link to the GOV gazetteer (gov.genealogy.net). The server connects to the outside world only for updates:
 
-- **Checking for new releases** (at most once a day, only when an administrator is logged in): the request goes to the Avunculus homepage (`avunculus.wolfgang-baumgartner.de`), which passes on the answer from GitHub. It sends a random identifier of the installation, created on the first check, and the Avunculus and PHP versions – no content, no names, not the address of the installation. This tells the project how many installations are in use and which versions they run; the homepage stores no IP addresses for it. With `USAGE_STATS=0` the check goes straight to GitHub instead, and if the homepage cannot be reached, it does so too. `UPDATE_CHECK=0` turns the check off altogether. The update dialog shows which applies.
+- **Checking for new releases** (at most once a day, only when an administrator is logged in): the request goes to the Avunculus homepage (`avunculus.wolfgang-baumgartner.de`), which passes on the answer from GitHub. It sends a random identifier of the installation, created on the first check, and the Avunculus and PHP versions – no content, no names. The address of the installation is sent only if at least one tree is published (the site is then public anyway) or an administrator agreed to it under *Settings…*; local addresses (localhost, IP addresses, home network names such as `.local` or `fritz.box`) are never sent. This tells the project how many installations are in use and which versions they run; the homepage stores no IP addresses for it. With `USAGE_STATS=0` the check goes straight to GitHub instead, and if the homepage cannot be reached, it does so too. `UPDATE_CHECK=0` turns the check off altogether. The update dialog shows which applies.
 - **Installing an update**: the release archive is downloaded from GitHub when an administrator installs it.
 
 The page also names itself in a `<meta name="generator">` tag (e.g. "Avunculus 1.0.4"), like many web applications.

@@ -6,7 +6,7 @@ declare(strict_types=1);
 final class Settings
 {
     /** Einstellungen, die der Admin in der Oberfläche ändern darf (leer erlaubt) */
-    public const EDITABLE = ['site_name', 'imprint_url', 'privacy_url'];
+    public const EDITABLE = ['site_name', 'imprint_url', 'privacy_url', 'share_url'];
     /** davon Webadressen (werden als Link ausgegeben und darum streng geprüft) */
     public const URLS = ['imprint_url', 'privacy_url'];
     /** Höchstlänge des Seitennamens (Kopfzeile, Titel im Browser) */

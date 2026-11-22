@@ -77,7 +77,7 @@ const checkedAt = computed(() => status.value?.checked_at
     <p v-else-if="status?.latest" class="muted">{{ t('update.upToDate') }}</p>
 
     <!-- Transparenz: was die Update-Abfrage mitschickt (USAGE_STATS=0 schaltet es ab) -->
-    <p v-if="status?.check" class="muted update-stats">{{ t(status.stats ? 'update.statsOn' : 'update.statsOff') }}</p>
+    <p v-if="status?.check" class="muted update-stats">{{ t(!status.stats ? 'update.statsOff' : status.shares_url ? 'update.statsOnUrl' : 'update.statsOn') }}</p>
 
     <div v-if="state === 'done'" class="alert alert-success">{{ t('update.done', { version: status.latest }) }}</div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>

@@ -8,7 +8,8 @@ declare(strict_types=1);
  * Prüfen: höchstens einmal am Tag das neueste Release abfragen (abschaltbar mit UPDATE_CHECK=0 in backend/.env).
  * Die Anfrage geht an die Avunculus-Homepage (STATS_API), die die GitHub-Antwort weitergibt und dabei
  * anonym mitzählt: eine zufällige Kennung der Installation, die Avunculus- und die PHP-Version – keine
- * Inhalte, keine Adresse der Installation. Mit USAGE_STATS=0 geht die Anfrage direkt an GitHub; ist die
+ * Inhalte. Die Adresse der Installation nur, wenn ein Stammbaum öffentlich ist oder der Admin zugestimmt hat
+ * (Einstellung share_url) – siehe sharedUrl(). Mit USAGE_STATS=0 geht die Anfrage direkt an GitHub; ist die
  * Homepage nicht erreichbar, ebenso. Installieren:
  *   1. avunculus-<version>.zip und die .sha256-Datei des Releases nach data/updates/ laden, Prüfsumme vergleichen
  *   2. entpacken (nur Einträge unter avunculus-<version>/, keine „..“), Inhalt prüfen, backend/.env hinüberkopieren
@@ -35,7 +36,8 @@ final class Updater
      */
     public function status(bool $refresh = false): array
     {
-        $out = ['current' => AppInfo::version(), 'check' => self::checkEnabled(), 'stats' => self::statsEnabled()];
+        $out = ['current' => AppInfo::version(), 'check' => self::checkEnabled(), 'stats' => self::statsEnabled(),
+                'shares_url' => $this->sharedUrl() !== null];
         if (!$out['check']) return $out;
 
         $cached  = json_decode((string) Settings::get($this->db, 'update_check'), true);
@@ -86,13 +88,27 @@ final class Updater
         return $id;
     }
 
+    /**
+     * Adresse, die die Update-Abfrage mitschickt – nur wenn mindestens ein Stammbaum öffentlich freigegeben ist
+     * (dann ist die Seite ohnehin im Netz sichtbar) oder der Admin in den Einstellungen zugestimmt hat (share_url).
+     * null ohne Zählung (USAGE_STATS=0) und für lokale Adressen (AppInfo::siteUrl).
+     */
+    private function sharedUrl(): ?string
+    {
+        if (!self::statsEnabled()) return null;
+        $public = (bool) $this->db->query('SELECT EXISTS(SELECT 1 FROM trees WHERE is_public = 1)')->fetchColumn();
+        if (!$public && Settings::get($this->db, 'share_url') !== '1') return null;
+        return AppInfo::siteUrl();
+    }
+
     /** Antwort „neuestes Release“ im Format der GitHub-API: über die Homepage, sonst direkt von GitHub */
     private function latestRelease(): mixed
     {
         if (isset($_ENV['UPDATE_API'])) return json_decode(self::http($_ENV['UPDATE_API']), true);   // nur für Tests
         if (self::statsEnabled()) {
             $query = http_build_query(['id' => $this->installId(), 'v' => AppInfo::version(),
-                                       'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]);
+                                       'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]
+                                      + (($url = $this->sharedUrl()) ? ['url' => $url] : []));
             try {
                 $api = $_ENV['STATS_API'] ?? self::STATS_API;   // STATS_API nur für Tests
                 $r   = json_decode(self::http($api . '?' . $query, 10), true);
