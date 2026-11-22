@@ -288,6 +288,8 @@ export default {
     upToDate:      'Avunculus ist auf dem neuesten Stand.',
     disabled:      'Die Suche nach Updates ist abgeschaltet (UPDATE_CHECK=0 in backend/.env).',
     checkNow:      'Jetzt prüfen',
+    statsOn:       'Bei der täglichen Abfrage zählt die Avunculus-Homepage diese Installation anonym mit: eine zufällige Kennung, die Avunculus- und die PHP-Version – keine Inhalte und keine Adresse. Abschalten mit USAGE_STATS=0 in backend/.env.',
+    statsOff:      'Die Abfrage geht direkt an GitHub, ohne Kennung dieser Installation (USAGE_STATS=0).',
     checkedAt:     'Geprüft: {{time}}',
     howItWorks:    'Das Paket wird von GitHub geladen, geprüft und installiert. Ihre Daten, Medien und Zugangsdaten bleiben erhalten; die Datenbank wird beim anschließenden Neuladen automatisch angepasst. Die bisherige Version wird aufbewahrt.',
     backupConfirm: 'Ich habe eine aktuelle Sicherung der Datenbank (z. B. Export in phpMyAdmin).',

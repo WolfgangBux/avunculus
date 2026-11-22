@@ -5,8 +5,11 @@ declare(strict_types=1);
 /**
  * Neue Versionen finden und installieren (nur Admin, über SystemController).
  *
- * Prüfen: höchstens einmal am Tag das neueste Release auf GitHub abfragen (abschaltbar mit
- * UPDATE_CHECK=0 in backend/.env). Installieren:
+ * Prüfen: höchstens einmal am Tag das neueste Release abfragen (abschaltbar mit UPDATE_CHECK=0 in backend/.env).
+ * Die Anfrage geht an die Avunculus-Homepage (STATS_API), die die GitHub-Antwort weitergibt und dabei
+ * anonym mitzählt: eine zufällige Kennung der Installation, die Avunculus- und die PHP-Version – keine
+ * Inhalte, keine Adresse der Installation. Mit USAGE_STATS=0 geht die Anfrage direkt an GitHub; ist die
+ * Homepage nicht erreichbar, ebenso. Installieren:
  *   1. avunculus-<version>.zip und die .sha256-Datei des Releases nach data/updates/ laden, Prüfsumme vergleichen
  *   2. entpacken (nur Einträge unter avunculus-<version>/, keine „..“), Inhalt prüfen, backend/.env hinüberkopieren
  *   3. Wartungsmodus an; backend/ und public/ als Ganzes austauschen, die übrigen Dateien einzeln überschreiben.
@@ -19,6 +22,8 @@ final class Updater
     /** werden als ganze Ordner ausgetauscht (keine alten Dateien übrig) */
     private const SWAP_DIRS = ['backend', 'public'];
     private const CHECK_INTERVAL = 86400;
+    /** Update-Abfrage über die Homepage (zählt Installationen anonym, gibt die GitHub-Antwort weiter) */
+    private const STATS_API = 'https://avunculus.wolfgang-baumgartner.de/api/latest.php';
 
     public function __construct(private readonly PDO $db) {}
 
@@ -30,7 +35,7 @@ final class Updater
      */
     public function status(bool $refresh = false): array
     {
-        $out = ['current' => AppInfo::version(), 'check' => self::checkEnabled()];
+        $out = ['current' => AppInfo::version(), 'check' => self::checkEnabled(), 'stats' => self::statsEnabled()];
         if (!$out['check']) return $out;
 
         $cached  = json_decode((string) Settings::get($this->db, 'update_check'), true);
@@ -63,6 +68,42 @@ final class Updater
         return !in_array(strtolower((string) ($_ENV['UPDATE_CHECK'] ?? '1')), ['0', 'false', 'no', 'off'], true);
     }
 
+    /** Zählt die Update-Abfrage anonym mit? (USAGE_STATS=0 schaltet das ab, UPDATE_CHECK=0 die ganze Abfrage) */
+    public static function statsEnabled(): bool
+    {
+        return self::checkEnabled()
+            && !in_array(strtolower((string) ($_ENV['USAGE_STATS'] ?? '1')), ['0', 'false', 'no', 'off'], true);
+    }
+
+    /** Zufällige Kennung dieser Installation (beim ersten Mal erzeugt; ohne Bezug zu Personen oder Inhalten) */
+    private function installId(): string
+    {
+        $id = (string) Settings::get($this->db, 'install_id');
+        if (!preg_match('/^[0-9a-f]{32}$/', $id)) {
+            $id = bin2hex(random_bytes(16));
+            Settings::set($this->db, 'install_id', $id);
+        }
+        return $id;
+    }
+
+    /** Antwort „neuestes Release“ im Format der GitHub-API: über die Homepage, sonst direkt von GitHub */
+    private function latestRelease(): mixed
+    {
+        if (isset($_ENV['UPDATE_API'])) return json_decode(self::http($_ENV['UPDATE_API']), true);   // nur für Tests
+        if (self::statsEnabled()) {
+            $query = http_build_query(['id' => $this->installId(), 'v' => AppInfo::version(),
+                                       'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION]);
+            try {
+                $api = $_ENV['STATS_API'] ?? self::STATS_API;   // STATS_API nur für Tests
+                $r   = json_decode(self::http($api . '?' . $query, 10), true);
+                if (is_array($r) && !empty($r['tag_name'])) return $r;
+            } catch (\Throwable $e) {
+                error_log('[Avunculus] Homepage nicht erreichbar, frage GitHub direkt: ' . $e->getMessage());
+            }
+        }
+        return json_decode(self::http('https://api.github.com/repos/' . AppInfo::REPO . '/releases/latest'), true);
+    }
+
     /** Warum hier nicht automatisch installiert werden kann – oder null */
     public static function blocker(): ?string
     {
@@ -80,8 +121,7 @@ final class Updater
     /** @return array{version: string, notes: string, url: string, published_at: string, zip: ?string, sha256: ?string, checked_at: int} */
     private function fetchLatest(): array
     {
-        $api = $_ENV['UPDATE_API'] ?? ('https://api.github.com/repos/' . AppInfo::REPO . '/releases/latest');   // UPDATE_API nur für Tests
-        $r   = json_decode(self::http($api), true);
+        $r = $this->latestRelease();
         if (!is_array($r) || empty($r['tag_name'])) throw new RuntimeException('Unerwartete Antwort von GitHub');
         $version = ltrim((string) $r['tag_name'], 'v');
         if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new RuntimeException("Unbekanntes Versionsformat: {$r['tag_name']}");
@@ -300,7 +340,7 @@ final class Updater
     }
 
     /** GET über curl oder (falls nicht vorhanden) file_get_contents; folgt Weiterleitungen (GitHub-Downloads) */
-    private static function http(string $url): string
+    private static function http(string $url, int $timeout = 120): string
     {
         if (!preg_match('#^https?://#', $url)) throw new RuntimeException('Ungültige Adresse');
         $agent = 'Avunculus/' . AppInfo::version();
@@ -308,14 +348,14 @@ final class Updater
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5,
-                CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_FAILONERROR => true,
+                CURLOPT_CONNECTTIMEOUT => min(15, $timeout), CURLOPT_TIMEOUT => $timeout, CURLOPT_FAILONERROR => true,
                 CURLOPT_USERAGENT => $agent, CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json, */*'],
             ]);
             $body = curl_exec($ch);
             if ($body === false) throw new RuntimeException('Abruf fehlgeschlagen: ' . curl_error($ch));
             return (string) $body;
         }
-        $ctx  = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => $agent, 'follow_location' => 1,
+        $ctx  = stream_context_create(['http' => ['timeout' => $timeout, 'user_agent' => $agent, 'follow_location' => 1,
                                                   'header' => "Accept: application/vnd.github+json, */*\r\n"]]);
         $body = @file_get_contents($url, false, $ctx);
         if ($body === false) throw new RuntimeException("Abruf fehlgeschlagen: $url");

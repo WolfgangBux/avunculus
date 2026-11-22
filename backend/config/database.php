@@ -7,7 +7,7 @@ class Database
     private static ?PDO $connection = null;
 
     /** Einstellungen, die aus der Umgebung kommen dürfen (Vorrang vor backend/.env) */
-    private const ENV_KEYS = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS', 'MEDIA_DIR', 'UPDATE_CHECK', 'UPDATE_API'];
+    private const ENV_KEYS = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS', 'MEDIA_DIR', 'UPDATE_CHECK', 'USAGE_STATS', 'UPDATE_API', 'STATS_API'];
 
     public static function getConnection(): PDO
     {

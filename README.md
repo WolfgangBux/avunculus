@@ -79,7 +79,8 @@ The `.htaccess` file sends every request through `router.php`, which only serves
 | `DB_NAME` | Database name | `avunculus` |
 | `DB_USER`, `DB_PASS` | Database user and password | `root`, empty |
 | `MEDIA_DIR` | Where media files are stored (one subfolder per tree) | `data/media` in the installation folder |
-| `UPDATE_CHECK` | Check GitHub for new releases (`0` to turn off) | `1` |
+| `UPDATE_CHECK` | Check for new releases once a day (`0` to turn off) | `1` |
+| `USAGE_STATS` | Let the update check count this installation anonymously (`0` to turn off, see [External services](#external-services)) | `1` |
 
 Environment variables, where set, take precedence over `backend/.env`.
 
@@ -107,11 +108,16 @@ Please back up your database (phpMyAdmin → **Export**) before updating; the di
 
 The automatic installation needs PHP to be allowed to change the program files and to download files (`curl` or `allow_url_fopen`). If that is not possible on your host, the dialog says so. Then update by hand: download the new release and upload all files, overwriting the old ones. Keep your `backend/.env` and `data/`, and copy your own lines from the old `.htaccess` (below `# END Avunculus`) into the new one. Database changes are applied automatically on the next page load in this case too.
 
-To turn off the update check, set `UPDATE_CHECK=0` in `backend/.env`.
+To turn off the update check, set `UPDATE_CHECK=0` in `backend/.env`. To keep it but not be counted, set `USAGE_STATS=0`.
 
 ### External services
 
-Map tiles are loaded by the browser from OpenStreetMap. The place matching tool queries Wikidata, and only when you use it. Places link to the GOV gazetteer (gov.genealogy.net). The server only connects to GitHub: to check for new releases (at most once a day, only when an administrator is logged in; can be turned off) and to download an update when an administrator installs one.
+Map tiles are loaded by the browser from OpenStreetMap. The place matching tool queries Wikidata, and only when you use it. Places link to the GOV gazetteer (gov.genealogy.net). The server connects to the outside world only for updates:
+
+- **Checking for new releases** (at most once a day, only when an administrator is logged in): the request goes to the Avunculus homepage (`avunculus.wolfgang-baumgartner.de`), which passes on the answer from GitHub. It sends a random identifier of the installation, created on the first check, and the Avunculus and PHP versions – no content, no names, not the address of the installation. This tells the project how many installations are in use and which versions they run; the homepage stores no IP addresses for it. With `USAGE_STATS=0` the check goes straight to GitHub instead, and if the homepage cannot be reached, it does so too. `UPDATE_CHECK=0` turns the check off altogether. The update dialog shows which applies.
+- **Installing an update**: the release archive is downloaded from GitHub when an administrator installs it.
+
+The page also names itself in a `<meta name="generator">` tag (e.g. "Avunculus 1.0.4"), like many web applications.
 
 ## Technical architecture
 

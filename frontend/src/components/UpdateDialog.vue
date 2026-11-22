@@ -76,6 +76,9 @@ const checkedAt = computed(() => status.value?.checked_at
     </template>
     <p v-else-if="status?.latest" class="muted">{{ t('update.upToDate') }}</p>
 
+    <!-- Transparenz: was die Update-Abfrage mitschickt (USAGE_STATS=0 schaltet es ab) -->
+    <p v-if="status?.check" class="muted update-stats">{{ t(status.stats ? 'update.statsOn' : 'update.statsOff') }}</p>
+
     <div v-if="state === 'done'" class="alert alert-success">{{ t('update.done', { version: status.latest }) }}</div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
 
@@ -107,5 +110,6 @@ const checkedAt = computed(() => status.value?.checked_at
 .update-notes :deep(code) { font-size: .8rem; background: var(--color-surface); padding: 0 .2rem; border-radius: 3px; }
 .update-hint { font-size: .85rem; margin: .8rem 0 .5rem; }
 .update-confirm { display: flex; align-items: flex-start; gap: .5rem; font-size: .85rem; cursor: pointer; }
+.update-stats { font-size: .78rem; margin-top: .75rem; }
 .update-checked { margin-right: auto; font-size: .78rem; align-self: center; }
 </style>
