@@ -25,8 +25,12 @@ export function mediaThumbUrl(id, crop = null) {
   return apiUrl(`/media/${id}/thumb?tree=${currentTreeId.value}`) + (c ? `&crop=${c}` : '')
 }
 
-/** Ausschnitt einer verknüpften Person auf dem Bild setzen (crop null = entfernen); liefert das Medium */
-export const saveMediaRegion = (id, personId, crop) => request('PUT', `/media/${id}/region`, { person_id: personId, crop })
+/**
+ * Ausschnitt einer Person auf dem Bild setzen (crop null = entfernen); link: Person erst verknüpfen
+ * (Vorschlag aus der Bilddatei). Liefert das Medium, dazu file_written (in die Datei geschrieben?).
+ */
+export const saveMediaRegion = (id, personId, crop, { link = false } = {}) =>
+  request('PUT', `/media/${id}/region`, { person_id: personId, crop, ...(link ? { link: true } : {}) })
 
 export const isImage = m => (m?.mime_type ?? '').startsWith('image/')
 

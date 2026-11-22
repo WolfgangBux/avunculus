@@ -20,6 +20,7 @@ require_once __DIR__ . '/lib/PersonQuery.php';
 require_once __DIR__ . '/lib/PlaceIndex.php';
 require_once __DIR__ . '/lib/MediaStore.php';
 require_once __DIR__ . '/lib/MediaLinks.php';
+require_once __DIR__ . '/lib/XmpRegions.php';
 require_once __DIR__ . '/lib/Relatives.php';
 require_once __DIR__ . '/lib/RowSync.php';
 require_once __DIR__ . '/lib/ChangeDiff.php';

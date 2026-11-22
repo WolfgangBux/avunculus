@@ -16,7 +16,7 @@ CREATE TABLE settings (
     name  VARCHAR(64) NOT NULL PRIMARY KEY,
     value TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-INSERT INTO settings (name, value) VALUES ('schema_version', '2');
+INSERT INTO settings (name, value) VALUES ('schema_version', '3');
 
 -- Benutzer; ohne Anmeldung ist man Besucher (sieht nur öffentliche Bäume, Lebende anonymisiert)
 CREATE TABLE users (
@@ -311,6 +311,7 @@ CREATE TABLE media (
     checksum      CHAR(40)     NOT NULL COMMENT 'SHA-1 des Inhalts (gleiche Datei nur einmal je Baum)',
     media_date    VARCHAR(100) NULL     COMMENT 'Aufnahmedatum als GEDCOM-Datum',
     notes         TEXT         NULL     COMMENT 'NOTE',
+    file_regions  TEXT         NULL     COMMENT 'In der Datei markierte Personen (XMP-Regionen) als JSON; NULL = noch nicht gelesen',
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (tree_id) REFERENCES trees(id) ON DELETE CASCADE,

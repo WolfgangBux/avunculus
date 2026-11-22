@@ -500,7 +500,9 @@ final class GedcomImporter
             if ($id === null) continue;
             $rec  = preg_match('/^@[^@]+@$/', $this->value($o)) ? ($this->objes[$this->value($o)] ?? $o) : $o;
             $prim = strtoupper($this->value($this->child($o, '_PRIM')) ?: $this->value($this->child($rec, '_PRIM')));
-            $items[] = ['id' => $id, 'is_primary' => $prim === 'Y' || $prim === 'YES'];
+            $item = ['id' => $id, 'is_primary' => $prim === 'Y' || $prim === 'YES'];
+            if ($kind === 'person' && ($crop = $this->cropOf($o, $id))) $item['crop'] = $crop;
+            $items[] = $item;
         }
         if (!$items) return;
         if ($kind === 'person' && !array_filter(array_column($items, 'is_primary'))) {
@@ -510,6 +512,29 @@ final class GedcomImporter
             unset($m);
         }
         $this->links->append($kind, $ownerId, $items);
+    }
+
+    /**
+     * GEDCOM 7: Ausschnitt (CROP) an der Medienverknüpfung – TOP/LEFT/HEIGHT/WIDTH in Pixeln des Bilds,
+     * fehlende Angaben reichen bis zum Rand. Umgerechnet in Anteile wie in person_media; null ohne CROP
+     * oder wenn die Bildgröße unbekannt ist.
+     */
+    private function cropOf(array $o, int $mediaId): ?array
+    {
+        $c = $this->child($o, 'CROP');
+        if (!$c) return null;
+        $stmt = $this->db->prepare('SELECT file_name, mime_type, width, height FROM media WHERE id = ?');
+        $stmt->execute([$mediaId]);
+        $m = $stmt->fetch();
+        if (!$m || !$m['width'] || !$m['height']) return null;
+        [$w, $h] = MediaStore::orientedSize(MediaStore::path($this->treeId, $m['file_name']), $m['mime_type'], (int) $m['width'], (int) $m['height']);
+        $num  = fn(string $tag) => is_numeric($v = $this->value($this->child($c, $tag))) ? (float) $v : null;
+        $left = $num('LEFT') ?? 0.0;
+        $top  = $num('TOP') ?? 0.0;
+        return MediaLinks::normalizeCrop([
+            'left' => $left / $w, 'top' => $top / $h,
+            'width' => ($num('WIDTH') ?? $w - $left) / $w, 'height' => ($num('HEIGHT') ?? $h - $top) / $h,
+        ]);
     }
 
     /** Medium zu einem OBJE-Verweis (@O1@) oder eingebetteten OBJE; null, wenn die Datei fehlt */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../lib/MediaStore.php';
 require_once __DIR__ . '/../lib/MediaLinks.php';
+require_once __DIR__ . '/../lib/XmpRegions.php';
 
 /** Mediathek eines Stammbaums: Bilder, Fotos, Dokumente (GEDCOM OBJE) */
 class MediaController extends TreeScopedController
@@ -65,10 +66,10 @@ class MediaController extends TreeScopedController
     }
 
     // GET /api/media/{id}  –  mit allen Stellen, an denen das Medium verwendet wird
-    public function show(int $id, int $status = 200): void
+    public function show(int $id, int $status = 200, array $extra = []): void
     {
         $m = $this->findOrFail($id);
-        $this->json([...$this->present($m), 'links' => $this->links($id)], $status);
+        $this->json([...$this->present($m), 'links' => $this->links($id), 'file_regions' => $this->fileRegions($m), ...$extra], $status);
     }
 
     /**
@@ -169,8 +170,11 @@ class MediaController extends TreeScopedController
     }
 
     /**
-     * PUT /api/media/{id}/region  { person_id, crop: {left, top, width, height, shape} | null }
-     * Ausschnitt einer verknüpften Person auf diesem Bild setzen oder entfernen. Antwort: das Medium wie bei show.
+     * PUT /api/media/{id}/region  { person_id, crop: {left, top, width, height, shape} | null, link?: true }
+     * Ausschnitt einer verknüpften Person auf diesem Bild setzen oder entfernen; mit link verknüpft es die
+     * Person erst (Vorschlag aus der Bilddatei – wird ihr Hauptbild, wenn sie noch keins hat).
+     * Bei JPEG kommen die Markierungen danach auch in die Datei (XMP, siehe XmpRegions).
+     * Antwort: das Medium wie bei show, dazu file_written (true/false; null = Dateityp kann es nicht).
      */
     public function region(int $id): void
     {
@@ -179,10 +183,69 @@ class MediaController extends TreeScopedController
         $personId = (int) ($b['person_id'] ?? 0);
         $crop     = $b['crop'] ?? null;
         if ($crop !== null && !MediaLinks::normalizeCrop($crop)) throw new HttpError(422, 'Ungültiger Ausschnitt');
-        if (!$this->inTree('persons', $personId) || !(new MediaLinks($this->db, $this->treeId))->setCrop($id, $personId, $crop)) {
-            throw new HttpError(404, 'Die Person ist mit diesem Medium nicht verknüpft.');
+        if (!$this->inTree('persons', $personId)) throw new HttpError(404, 'Person nicht gefunden');
+        $links = new MediaLinks($this->db, $this->treeId);
+        if (!empty($b['link'])) $links->append('person', $personId, [['id' => $id, 'is_primary' => true]]);
+        if (!$links->setCrop($id, $personId, $crop)) throw new HttpError(404, 'Die Person ist mit diesem Medium nicht verknüpft.');
+        $this->show($id, 200, ['file_written' => $this->writeRegions($id)]);
+    }
+
+    /**
+     * Markierungen aus Avunculus in die Bilddatei schreiben (nur JPEG); danach Größe und Prüfsumme
+     * neu, Vorschläge aus der Datei neu lesen. null = Dateityp kann es nicht, false = fehlgeschlagen
+     * (Datei unverändert, z. B. schreibgeschützt).
+     */
+    private function writeRegions(int $id): ?bool
+    {
+        $m = $this->findOrFail($id);
+        if (!XmpRegions::canWrite($m['mime_type'])) return null;
+        $path = MediaStore::path($this->treeId, $m['file_name']);
+        if (!is_file($path) || !is_writable($path) || !is_writable(dirname($path))) return false;
+
+        $stmt = $this->db->prepare("
+            SELECT pm.person_id, pm.crop_left, pm.crop_top, pm.crop_width, pm.crop_height, pm.crop_shape,
+                   (SELECT CONCAT_WS(' ', NULLIF(n.given_name, ''), NULLIF(n.surname_prefix, ''), NULLIF(n.surname, ''))
+                    FROM person_names n WHERE n.person_id = pm.person_id ORDER BY n.sort_order, n.id LIMIT 1) AS name
+            FROM person_media pm WHERE pm.media_id = ? AND pm.crop_width IS NOT NULL ORDER BY pm.sort_order, pm.id");
+        $stmt->execute([$id]);
+        $ours = array_map(fn($r) => ['person_id' => (int) $r['person_id'], 'name' => (string) $r['name'],
+                                     'crop' => MediaLinks::cropFromRow($r)], $stmt->fetchAll());
+
+        [$w, $h] = MediaStore::orientedSize($path, $m['mime_type'], $m['width'] !== null ? (int) $m['width'] : null,
+                                            $m['height'] !== null ? (int) $m['height'] : null);
+        if (!$w || !$h) return false;
+        try {
+            if (!XmpRegions::write($path, $ours, $w, $h)) return $ours ? false : true;
+        } catch (\Throwable $e) {
+            error_log('[Avunculus] Markierungen nicht in die Datei geschrieben: ' . $e->getMessage());
+            return false;
         }
-        $this->show($id);
+        clearstatcache(true, $path);
+        $this->db->prepare('UPDATE media SET file_size = ?, checksum = ?, file_regions = NULL WHERE id = ?')
+                 ->execute([filesize($path), sha1_file($path), $id]);
+        return true;
+    }
+
+    /**
+     * In der Datei markierte Personen, die noch keiner verknüpften Person zugeordnet sind (Vorschläge).
+     * Beim ersten Abruf aus der Datei gelesen und gemerkt. Besucher sehen keine (Namen Lebender).
+     * @return list<array{name: string, crop: array}>
+     */
+    private function fileRegions(array $m): array
+    {
+        if (Privacy::active() || !str_starts_with($m['mime_type'], 'image/')) return [];
+        $regions = $m['file_regions'] !== null ? (json_decode($m['file_regions'], true) ?: []) : null;
+        if ($regions === null) {
+            $regions = XmpRegions::read(MediaStore::path($this->treeId, $m['file_name']));
+            $this->db->prepare('UPDATE media SET file_regions = ?, updated_at = updated_at WHERE id = ?')
+                     ->execute([json_encode($regions, JSON_UNESCAPED_UNICODE), $m['id']]);
+        }
+        // Eigene Markierungen (avu:PersonId) dieses Bilds sind schon da
+        $stmt = $this->db->prepare('SELECT person_id FROM person_media WHERE media_id = ?');
+        $stmt->execute([$m['id']]);
+        $linked = array_fill_keys(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)), true);
+        return array_values(array_map(fn($r) => ['name' => $r['name'], 'crop' => $r['crop']],
+            array_filter($regions, fn($r) => !isset($linked[(int) ($r['person_id'] ?? 0)]))));
     }
 
     // -------------------------------------------------------------------------

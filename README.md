@@ -18,7 +18,7 @@ Avunculus is a web application for recording, researching and sharing family his
 - **Tree view** with ancestors, siblings and descendants, and a map of each person's places with their course of life, optionally with parents and grandparents.
 - **Sources and repositories**, with a list of every event that cites a source.
 - **Place hierarchy** (village → municipality → district …) with alternative names, coordinates, GOV identifiers, Wikidata matching and merging of duplicate places.
-- **Media library** for photos, scans, PDFs, audio and video, linked to people, families, events and sources. People can be marked on a photo with a rectangle or oval; their thumbnail then shows just that part.
+- **Media library** for photos, scans, PDFs, audio and video, linked to people, families, events and sources. People can be marked on a photo with a rectangle or oval; their thumbnail then shows just that part. Markings from Lightroom, digiKam and other programs (XMP regions) are offered as suggestions, markings made in Avunculus are written into JPEG files, and GEDCOM 7 `CROP` is imported.
 - **GEDCOM import** (5.5, 5.5.1, 7.0; also ZIP/GEDZIP with media files) into a new tree or merged into an existing one, with duplicate detection and manual matching.
 - **GEDCOM export** (5.5.1, UTF-8), optionally as a ZIP archive including all media.
 - **Relatives tree**: create a new tree from all blood relatives of a person and their partners.

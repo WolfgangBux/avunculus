@@ -160,6 +160,16 @@ final class MediaStore
         return $ok ? $thumb : null;
     }
 
+    /** Größe des richtig gedrehten Bilds: bei EXIF-Orientation 5–8 sind Breite und Höhe vertauscht */
+    public static function orientedSize(string $path, string $mime, ?int $w, ?int $h): array
+    {
+        if ($mime === 'image/jpeg' && function_exists('exif_read_data') && is_file($path)) {
+            $o = (int) (@exif_read_data($path)['Orientation'] ?? 1);
+            if ($o >= 5 && $o <= 8) return [$h, $w];
+        }
+        return [$w, $h];
+    }
+
     /** Hochkant aufgenommene Fotos (EXIF-Orientation) richtig herum drehen */
     private static function orient(GdImage $img, string $src): GdImage
     {

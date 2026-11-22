@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import Button from 'openvue/button'
 import SelectButton from 'openvue/selectbutton'
+import PersonPicker from './PersonPicker.vue'
 import { mediaFileUrl, saveMediaRegion } from '../api/media.js'
 import { useNotify } from '../composables/feedback.js'
 import { t } from '../i18n/index.js'
@@ -16,6 +17,10 @@ import { canEdit } from '../auth.js'
  * unabhängig von der Auflösung, und das Vorschaubild schneidet nach dem Drehen genauso zu.
  *
  * onlyPerson: nur diese Person (Dialog aus dem Personenformular) – startet gleich im Bearbeiten.
+ *
+ * Vorschläge: in der Bilddatei markierte Personen (XMP aus Lightroom, digiKam …, media.file_regions),
+ * gestrichelt dargestellt. Passt der Name zu einer verknüpften Person, genügt ein Klick; sonst wird eine
+ * Person gewählt und dabei mit dem Bild verknüpft. Beim Bearbeiten lässt sich ein Vorschlag als Rahmen übernehmen.
  */
 const props = defineProps({
   media:      { type: Object, required: true },   // mit links (MediaController::show)
@@ -51,12 +56,14 @@ watch(() => [props.media.id, props.onlyPerson], () => {
   else cancel()
 }, { immediate: true })
 
-async function save(crop) {
+async function save(crop, personId = editing.value, opts = {}) {
   saving.value = true
   try {
-    const m = await saveMediaRegion(props.media.id, editing.value, crop)
-    notify.success(crop ? t('media.region.saved') : t('media.region.removed'))
+    const m = await saveMediaRegion(props.media.id, personId, crop, opts)
+    notify.success((crop ? t('media.region.saved') : t('media.region.removed'))
+                   + (m.file_written ? ' – ' + t('media.region.inFile') : ''))
     cancel()
+    assigning.value = null
     emit('saved', m)
   } catch (e) {
     notify.error(e?.error || t('media.region.saveError'))
@@ -113,6 +120,42 @@ function up() {
 function setShape(shape) { if (draft.value) draft.value = { ...draft.value, shape } }
 const draftShape = computed({ get: () => draft.value?.shape ?? 'rect', set: setShape })
 
+// ── Vorschläge aus der Bilddatei ──
+// Schon erledigt, wenn eine markierte Person fast denselben Rahmen hat
+function overlap(a, b) {
+  const w = Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left)
+  const h = Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top)
+  if (w <= 0 || h <= 0) return 0
+  return (w * h) / (a.width * a.height + b.width * b.height - w * h)
+}
+
+// „Marianne Nigl“ ↔ „Nigl, Marianne“: verknüpfte Person ohne Rahmen mit gleichem Namen
+const norm = s => (s ?? '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+function matchPerson(name) {
+  const n = norm(name)
+  if (!n) return null
+  return (props.media.links ?? []).find(l => {
+    if (l.kind !== 'person' || l.crop) return false
+    const [sur, given = ''] = (l.label ?? '').split(',').map(x => x.trim())
+    return norm(`${given} ${sur}`) === n || norm(`${sur} ${given}`) === n
+  }) ?? null
+}
+
+const suggestions = computed(() => (props.media.file_regions ?? [])
+  .filter(s => !(props.media.links ?? []).some(l => l.kind === 'person' && l.crop && overlap(l.crop, s.crop) > 0.5))
+  .map((s, i) => ({ ...s, key: i, match: matchPerson(s.name) })))
+
+const assigning = ref(null)   // Schlüssel des Vorschlags, für den gerade eine Person gewählt wird
+const pickId    = ref('')
+function startAssign(s) { assigning.value = s.key; pickId.value = '' }
+function assign(s) {
+  if (!pickId.value) return
+  const id = Number(pickId.value)
+  const linked = (props.media.links ?? []).some(l => l.kind === 'person' && l.target_id === id)
+  save({ ...s.crop }, id, { link: !linked })
+}
+function takeOver(s) { draft.value = { ...s.crop, shape: draft.value?.shape ?? 'rect' } }
+
 const box = c => ({ left: c.left * 100 + '%', top: c.top * 100 + '%', width: c.width * 100 + '%', height: c.height * 100 + '%' })
 const shown = computed(() => persons.value.filter(p => p.crop && p.target_id !== editing.value))
 const editingLabel = computed(() => persons.value.find(p => p.target_id === editing.value)?.label ?? '')
@@ -125,6 +168,13 @@ defineExpose({ edit })
 <div class="media-regions">
   <div :class="['region-stage', { editing: editing != null }]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
     <img ref="img" :src="mediaFileUrl(media.id)" :alt="media.title || ''" draggable="false" />
+
+    <!-- Vorschläge aus der Bilddatei -->
+    <div v-for="s in suggestions" :key="'s' + s.key"
+      :class="['region', 'region-suggest', { hovered: hovered === 's' + s.key || assigning === s.key, dim: editing != null }]"
+      :style="box(s.crop)">
+      <span v-if="editing == null && s.name" class="region-label">{{ s.name }}?</span>
+    </div>
 
     <!-- gespeicherte Markierungen der übrigen Personen -->
     <div v-for="p in shown" :key="p.target_id" :class="['region', 'region-' + p.crop.shape, { hovered: hovered === p.target_id, dim: editing != null }]"
@@ -143,6 +193,11 @@ defineExpose({ edit })
     <p class="region-hint">
       <strong>{{ editingLabel }}</strong> – {{ draft ? t('media.region.hintAdjust') : t('media.region.hintDraw') }}
     </p>
+    <p v-if="suggestions.length" class="region-takeover">
+      <span class="muted">{{ t('media.region.fromFile') }}</span>
+      <Button v-for="s in suggestions" :key="s.key" :label="s.name || t('media.region.unnamed')" icon="pi pi-arrow-down-left" text size="small"
+        :title="t('media.region.takeOver')" @mouseenter="hovered = 's' + s.key" @mouseleave="hovered = null" @click="takeOver(s)" />
+    </p>
     <div class="region-actions">
       <SelectButton v-model="draftShape" :options="shapeOptions" option-label="label" option-value="value" :allow-empty="false"
         size="small" :disabled="!draft" :aria-label="t('media.region.shape')" />
@@ -154,8 +209,28 @@ defineExpose({ edit })
     </div>
   </div>
 
+  <!-- Vorschläge aus der Bilddatei: Person zuordnen -->
+  <div v-if="editing == null && canEdit && suggestions.length && onlyPerson == null" class="region-persons region-suggestions">
+    <span class="muted">{{ t('media.region.fromFile') }}</span>
+    <template v-for="s in suggestions" :key="s.key">
+      <span v-if="assigning !== s.key" class="region-chip region-chip-suggest"
+        @mouseenter="hovered = 's' + s.key" @mouseleave="hovered = null">
+        {{ s.name || t('media.region.unnamed') }}
+        <Button v-if="s.match" :label="t('media.region.takeFor', { name: s.match.label })" icon="pi pi-check" text size="small"
+          :loading="saving" @click="save({ ...s.crop }, s.match.target_id)" />
+        <Button v-else :label="t('media.region.assign')" icon="pi pi-user-plus" text size="small" @click="startAssign(s)" />
+      </span>
+      <span v-else class="region-assign">
+        <span>{{ t('media.region.assignFor', { name: s.name || t('media.region.unnamed') }) }}</span>
+        <PersonPicker v-model="pickId" :placeholder="t('media.region.choose')" class="region-picker" />
+        <Button :label="t('action.cancel')" text size="small" @click="assigning = null" />
+        <Button :label="t('media.region.assign')" icon="pi pi-check" size="small" :disabled="!pickId" :loading="saving" @click="assign(s)" />
+      </span>
+    </template>
+  </div>
+
   <!-- Personen auf dem Bild -->
-  <div v-else-if="persons.length && (canEdit || shown.length)" class="region-persons">
+  <div v-if="editing == null && persons.length && (canEdit || shown.length)" class="region-persons">
     <span class="muted">{{ t('media.region.persons') }}</span>
     <span v-for="p in persons" :key="p.target_id" :class="['region-chip', 'sex-' + (p.sex || 'U'), { marked: p.crop }]"
       @mouseenter="hovered = p.target_id" @mouseleave="hovered = null">
