@@ -267,6 +267,9 @@ export default {
   settings: {
     menu:         'Einstellungen…',
     title:        'Einstellungen',
+    siteName:     'Name der Seite',
+    siteNamePlaceholder: 'z. B. Ahnenforschung Familie Huber',
+    siteNameHint: 'Steht oben links neben dem Logo und als Titel im Browser. Leer lassen = „Avunculus“.',
     legalIntro:   'Wer Avunculus öffentlich im Internet betreibt, braucht oft ein Impressum und eine Datenschutzerklärung. Tragen Sie hier die Adressen Ihrer Seiten ein – die Links erscheinen dann in der Fußzeile und beim Anmelden. Leer lassen = kein Link.',
     imprintUrl:   'Adresse des Impressums',
     privacyUrl:   'Adresse der Datenschutzerklärung',

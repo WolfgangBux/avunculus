@@ -4,6 +4,6 @@ import { request } from './http.js'
 export const fetchUpdateStatus = (refresh = false) => request('GET', '/system/update' + (refresh ? '?refresh=1' : ''))
 export const installUpdate     = (version)         => request('POST', '/system/update', { version })
 
-/** Einstellungen der Installation (nur Admin): { imprint_url, privacy_url } */
+/** Einstellungen der Installation (nur Admin): { site_name, imprint_url, privacy_url } */
 export const fetchSettings = ()     => request('GET', '/system/settings')
 export const saveSettings  = (data) => request('PUT', '/system/settings', data)

@@ -96,8 +96,18 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 
+.brand { min-width: 0; flex-shrink: 1; }
+/* Langer Seitenname: abgeschnitten mit „…“ (ganz im Tooltip), damit er Baum-Knopf und Tabs nicht verdrängt */
+.brand-text { min-width: 0; max-width: 16rem; }
+.brand-text h1, .brand-text .tagline { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-text h1       { font-size: 1.2rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.1; }
 .brand-text .tagline { font-size: .72rem; color: var(--color-muted); }
+.brand-custom .brand-text { max-width: 17rem; }
+.brand-custom .brand-text h1 {
+  font-size: 1.02rem; line-height: 1.15; white-space: normal;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+@media (max-width: 1500px) { .brand-text, .brand-custom .brand-text { max-width: 13rem; } }
 
 /* Hauptnavigation – Tabs direkt in der Kopfzeile */
 .app-nav {

@@ -1,5 +1,5 @@
 <script>
-import { ref, computed, watch, onMounted, defineComponent } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted, defineComponent } from 'vue'
 import { usePrimeVue } from 'openvue/config'
 import Toast from 'openvue/toast'
 import ConfirmDialog from 'openvue/confirmdialog'
@@ -44,7 +44,7 @@ import { openRelationship } from './composables/relationship.js'
 import UpdateDialog from './components/UpdateDialog.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { checkUpdates, updateAvailable } from './composables/updates.js'
-import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel, legalLinks } from './auth.js'
+import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel, legalLinks, siteName } from './auth.js'
 import { useNotify } from './composables/feedback.js'
 import { useHashRoute } from './composables/hashRoute.js'
 import { useTreeMenu, useUserMenu, useAnalysisMenu } from './composables/appMenus.js'
@@ -57,6 +57,9 @@ export default defineComponent({
 
   setup() {
     const view = ref('tree')
+
+    // Name der Seite (Einstellungen) als Titel im Browser; ohne Namen „Avunculus – Ahnenforschung“
+    watchEffect(() => { document.title = siteName.value || `Avunculus – ${t('app.tagline')}` })
 
     // ── Datei: Stammbäume ─────────────────────────────────
     const trees       = ref([])
@@ -457,7 +460,7 @@ export default defineComponent({
       updateAvailable,
       SOURCE_URL, APP_VERSION, LICENSES_URL,
       t, locale, setLocale, availableLocales,
-      user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
+      siteName, user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
       view, openFromSearch, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
       navTabs, navEl, navItems, navVisible, navMeasuring, moreBtn, moreMenu, moreItems, moreActive, analysisShown,
       trees, currentTree, currentTreeId, showOpen, showNew, showImport, treeMenu, treeMenuItems, analysisMenu, analysisMenuItems, sourcesView,
@@ -478,11 +481,12 @@ export default defineComponent({
 
 <template>
 <header class="app-header">
-  <div class="brand">
+  <!-- Eigener Seitenname (Einstellungen): bis zu zwei Zeilen statt „Avunculus / Ahnenforschung“ -->
+  <div :class="['brand', { 'brand-custom': siteName }]" :title="siteName || null">
     <img class="brand-logo" :src="'favicon.svg'" alt="" aria-hidden="true" />
     <div class="brand-text">
-      <h1>Avunculus</h1>
-      <span class="tagline">{{ t('app.tagline') }}</span>
+      <h1>{{ siteName || 'Avunculus' }}</h1>
+      <span v-if="!siteName" class="tagline">{{ t('app.tagline') }}</span>
     </div>
   </div>
 

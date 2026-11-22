@@ -19,7 +19,7 @@ class SystemController extends BaseController
         $this->json($out);
     }
 
-    // PUT /api/system/settings  –  body: { imprint_url?, privacy_url? }  –  leer = kein Link
+    // PUT /api/system/settings  –  body: { site_name?, imprint_url?, privacy_url? }  –  leer = kein Name bzw. kein Link
     public function saveSettings(): void
     {
         $data   = $this->body();
@@ -28,6 +28,13 @@ class SystemController extends BaseController
         foreach (Settings::EDITABLE as $name) {
             if (!array_key_exists($name, $data)) continue;
             $v = trim((string) $data[$name]);
+            if ($name === 'site_name') {
+                // Klartext in einer Zeile (Vue gibt ihn als Text aus, nie als HTML)
+                $v = trim(preg_replace('/[\p{Cc}\p{Zl}\p{Zp}]+/u', ' ', $v) ?? '');
+                if (mb_strlen($v) > Settings::SITE_NAME_MAX) $errors[$name] = 'Höchstens ' . Settings::SITE_NAME_MAX . ' Zeichen';
+                $values[$name] = $v;
+                continue;
+            }
             // Nur echte Webadressen – sonst ließe sich über den Link Skript einschleusen (javascript:…)
             if ($v !== '' && (strlen($v) > 500 || !preg_match('~^https?://[^\s<>"]+$~i', $v)
                               || !filter_var($v, FILTER_VALIDATE_URL))) {

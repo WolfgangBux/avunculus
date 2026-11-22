@@ -4,15 +4,15 @@ import Dialog from 'openvue/dialog'
 import Button from 'openvue/button'
 import InputText from 'openvue/inputtext'
 import { fetchSettings, saveSettings } from '../api/system.js'
-import { legalLinks } from '../auth.js'
+import { legalLinks, siteName } from '../auth.js'
 import { useNotify } from '../composables/feedback.js'
 import { t } from '../i18n/index.js'
 
-// Einstellungen der Installation (nur Admin): Links auf Impressum und Datenschutzerklärung des Betreibers
+// Einstellungen der Installation (nur Admin): Name der Seite, Links auf Impressum und Datenschutzerklärung des Betreibers
 const visible = defineModel('visible', { type: Boolean, default: false })
 const notify  = useNotify()
 
-const form    = ref({ imprint_url: '', privacy_url: '' })
+const form    = ref({ site_name: '', imprint_url: '', privacy_url: '' })
 const errors  = ref({})
 const loading = ref(false)
 
@@ -28,7 +28,9 @@ async function submit() {
   loading.value = true
   try {
     const saved = await saveSettings(form.value)
-    legalLinks.value = Object.fromEntries(Object.entries(saved).filter(([, v]) => v))
+    const { site_name, ...links } = saved
+    siteName.value   = site_name ?? ''
+    legalLinks.value = Object.fromEntries(Object.entries(links).filter(([, v]) => v))
     notify.success(t('settings.saved'))
     visible.value = false
   } catch (e) {
@@ -44,6 +46,13 @@ async function submit() {
   <Dialog v-model:visible="visible" modal :draggable="false" :header="t('settings.title')"
     :style="{ width: '32rem' }" :breakpoints="{ '600px': '95vw' }">
     <form class="settings-form" novalidate @submit.prevent="submit">
+      <div class="form-group">
+        <label for="set-site-name">{{ t('settings.siteName') }}</label>
+        <InputText id="set-site-name" v-model="form.site_name" maxlength="80" :placeholder="t('settings.siteNamePlaceholder')" fluid
+          :invalid="!!errors.site_name" />
+        <small v-if="errors.site_name" class="error-msg">{{ errors.site_name }}</small>
+        <small v-else class="muted">{{ t('settings.siteNameHint') }}</small>
+      </div>
       <p class="muted dialog-intro">{{ t('settings.legalIntro') }}</p>
       <div class="form-group">
         <label for="set-imprint">{{ t('settings.imprintUrl') }}</label>

@@ -9,6 +9,7 @@ export const user       = ref(null)
 export const needsSetup = ref(false)   // noch kein Benutzer angelegt → ersten Admin einrichten
 export const appVersion = ref('')      // installierte Version (nur für Angemeldete)
 export const legalLinks = ref({})      // Impressum/Datenschutz des Betreibers: { imprint_url?, privacy_url? }
+export const siteName   = ref('')      // Name der Seite (Einstellungen): Kopfzeile und Browser-Titel; '' = „Avunculus“
 
 export const isAdmin = computed(() => user.value?.role === 'admin')
 export const canEdit = computed(() => ['admin', 'editor'].includes(user.value?.role))
@@ -18,6 +19,7 @@ function apply(res) {
   needsSetup.value = !!res?.setup
   if (res?.version) appVersion.value = res.version
   if (res?.legal)   legalLinks.value = res.legal
+  if (res && 'site_name' in res) siteName.value = res.site_name ?? ''
   return user.value
 }
 

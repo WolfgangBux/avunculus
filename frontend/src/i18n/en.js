@@ -267,6 +267,9 @@ export default {
   settings: {
     menu:         'Settings…',
     title:        'Settings',
+    siteName:     'Site name',
+    siteNamePlaceholder: 'e.g. Huber family history',
+    siteNameHint: 'Shown at the top left next to the logo and as the browser title. Leave empty for “Avunculus”.',
     legalIntro:   'If you run Avunculus publicly on the internet, you may need a legal notice (imprint) and a privacy policy. Enter the addresses of your pages here and the links appear in the footer and when signing in. Leave empty for no link.',
     imprintUrl:   'Address of the legal notice',
     privacyUrl:   'Address of the privacy policy',
