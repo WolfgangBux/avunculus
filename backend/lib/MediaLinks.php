@@ -6,8 +6,10 @@ declare(strict_types=1);
  * Verknüpfungen zwischen Medien und Personen, Familien, Ereignissen und Quellen.
  * Jede Art hat eine eigene Tabelle (mit Fremdschlüsseln, damit Löschen aufräumt).
  *
- * Ein Medium in API-Antworten: { id, title, mime_type, width, height, is_primary }
- * Beim Speichern genügt [{ id, is_primary? }, …].
+ * Ein Medium in API-Antworten: { id, title, mime_type, width, height, is_primary } – bei Personen dazu
+ * crop: Ausschnitt der Person auf dem Bild { left, top, width, height, shape } (Anteile 0–1) oder null.
+ * Beim Speichern genügt [{ id, is_primary? }, …]; der Ausschnitt einer Person bleibt dabei erhalten
+ * (er wird über PUT media/{id}/region gesetzt), außer ein Eintrag bringt selbst crop mit (Import).
  */
 final class MediaLinks
 {
@@ -22,16 +24,19 @@ final class MediaLinks
 
     public function __construct(private readonly PDO $db, private readonly int $treeId) {}
 
+    /** Spalten des Ausschnitts in person_media */
+    private const CROP_COLS = 'l.crop_left, l.crop_top, l.crop_width, l.crop_height, l.crop_shape';
+
     /** @return array<int, list<array>> Besitzer-ID → Medien in Reihenfolge */
     public function fetch(string $kind, array $ownerIds): array
     {
         [$table, $col] = self::KINDS[$kind];
         $ownerIds = array_values(array_unique(array_filter(array_map('intval', $ownerIds))));
         if (!$ownerIds) return [];
-        $primary = $kind === 'person' ? 'l.is_primary' : '0';
-        $in   = implode(',', array_fill(0, count($ownerIds), '?'));
-        $stmt = $this->db->prepare("
-            SELECT l.$col AS owner_id, $primary AS is_primary, m.id, m.title, m.original_name, m.mime_type, m.width, m.height
+        $extra = $kind === 'person' ? 'l.is_primary, ' . self::CROP_COLS . ',' : '0 AS is_primary,';
+        $in    = implode(',', array_fill(0, count($ownerIds), '?'));
+        $stmt  = $this->db->prepare("
+            SELECT l.$col AS owner_id, $extra m.id, m.title, m.original_name, m.mime_type, m.width, m.height
             FROM $table l JOIN media m ON m.id = l.media_id
             WHERE l.$col IN ($in)" . Privacy::mediaSql('m') . "
             ORDER BY l.$col, l.sort_order, l.id
@@ -39,7 +44,7 @@ final class MediaLinks
         $stmt->execute($ownerIds);
         $out = [];
         foreach ($stmt->fetchAll() as $r) {
-            $out[(int) $r['owner_id']][] = self::item($r);
+            $out[(int) $r['owner_id']][] = self::item($r) + ($kind === 'person' ? ['crop' => self::cropFromRow($r)] : []);
         }
         return $out;
     }
@@ -56,10 +61,57 @@ final class MediaLinks
         ];
     }
 
+    // ── Ausschnitt (Person auf dem Bild) ─────────────────────────────
+
+    /** Ausschnitt aus einer Zeile mit crop_*-Spalten; null = ganzes Bild */
+    public static function cropFromRow(array $r): ?array
+    {
+        if ($r['crop_width'] === null || $r['crop_height'] === null) return null;
+        return [
+            'left'   => round((float) $r['crop_left'], 4),
+            'top'    => round((float) $r['crop_top'], 4),
+            'width'  => round((float) $r['crop_width'], 4),
+            'height' => round((float) $r['crop_height'], 4),
+            'shape'  => $r['crop_shape'] === 'ellipse' ? 'ellipse' : 'rect',
+        ];
+    }
+
+    /**
+     * Ausschnitt aus einer Eingabe prüfen und auf das Bild begrenzen; null = keiner bzw. ungültig.
+     * Zu kleine Ausschnitte (unter 1 % je Richtung) gelten als versehentlich.
+     */
+    public static function normalizeCrop(mixed $c): ?array
+    {
+        if (!is_array($c)) return null;
+        foreach (['left', 'top', 'width', 'height'] as $k) if (!is_numeric($c[$k] ?? null)) return null;
+        $l = max(0.0, min(1.0, (float) $c['left']));
+        $t = max(0.0, min(1.0, (float) $c['top']));
+        $w = min(1.0 - $l, (float) $c['width']);
+        $h = min(1.0 - $t, (float) $c['height']);
+        if ($w < 0.01 || $h < 0.01) return null;
+        return ['left' => round($l, 6), 'top' => round($t, 6), 'width' => round($w, 6), 'height' => round($h, 6),
+                'shape' => ($c['shape'] ?? '') === 'ellipse' ? 'ellipse' : 'rect'];
+    }
+
+    /** Parameterwerte für die crop_*-Spalten (alle null ohne Ausschnitt) */
+    private static function cropValues(?array $c): array
+    {
+        return $c ? [$c['left'], $c['top'], $c['width'], $c['height'], $c['shape']] : [null, null, null, null, null];
+    }
+
     /** Verknüpfungen eines Besitzers ersetzen; nur Medien aus diesem Baum, jedes einmal, höchstens ein Hauptbild */
     public function save(string $kind, int $ownerId, array $items): void
     {
         [$table, $col] = self::KINDS[$kind];
+        // Ausschnitte bleiben beim Medium, das die Person behält (das Personenformular schickt sie nicht mit)
+        if ($kind === 'person') {
+            $stmt = $this->db->prepare('SELECT media_id, crop_left, crop_top, crop_width, crop_height, crop_shape FROM person_media WHERE person_id = ?');
+            $stmt->execute([$ownerId]);
+            $kept = [];
+            foreach ($stmt as $r) if ($c = self::cropFromRow($r)) $kept[(int) $r['media_id']] = $c;
+            $items = array_map(fn($m) => is_array($m) && !array_key_exists('crop', $m) && isset($kept[(int) ($m['id'] ?? 0)])
+                ? [...$m, 'crop' => $kept[(int) $m['id']]] : $m, $items);
+        }
         $this->db->prepare("DELETE FROM $table WHERE $col = ?")->execute([$ownerId]);
         $this->insert($kind, $ownerId, $items);
     }
@@ -72,7 +124,8 @@ final class MediaLinks
         if (!$valid) return;
         $isPerson = $kind === 'person';
         $ins = $this->db->prepare($isPerson
-            ? "INSERT INTO $table ($col, media_id, is_primary, sort_order) VALUES (?, ?, ?, ?)"
+            ? "INSERT INTO $table ($col, media_id, is_primary, sort_order, crop_left, crop_top, crop_width, crop_height, crop_shape)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             : "INSERT INTO $table ($col, media_id, sort_order) VALUES (?, ?, ?)");
         $seen = [];
         $hasPrimary = false;
@@ -83,11 +136,24 @@ final class MediaLinks
             if ($isPerson) {
                 $primary = !$hasPrimary && is_array($m) && !empty($m['is_primary']);
                 $hasPrimary = $hasPrimary || $primary;
-                $ins->execute([$ownerId, $id, (int) $primary, min($order++, 255)]);
+                $crop = is_array($m) ? self::normalizeCrop($m['crop'] ?? null) : null;
+                $ins->execute([$ownerId, $id, (int) $primary, min($order++, 255), ...self::cropValues($crop)]);
             } else {
                 $ins->execute([$ownerId, $id, min($order++, 255)]);
             }
         }
+    }
+
+    /** Ausschnitt einer Person auf einem Medium setzen (null = entfernen); false, wenn die Verknüpfung fehlt */
+    public function setCrop(int $mediaId, int $personId, ?array $crop): bool
+    {
+        $stmt = $this->db->prepare('UPDATE person_media SET crop_left = ?, crop_top = ?, crop_width = ?, crop_height = ?, crop_shape = ?
+                                    WHERE media_id = ? AND person_id = ?');
+        $stmt->execute([...self::cropValues(self::normalizeCrop($crop)), $mediaId, $personId]);
+        if ($stmt->rowCount() > 0) return true;
+        $chk = $this->db->prepare('SELECT 1 FROM person_media WHERE media_id = ? AND person_id = ?');   // unverändert gespeichert?
+        $chk->execute([$mediaId, $personId]);
+        return (bool) $chk->fetchColumn();
     }
 
     /**

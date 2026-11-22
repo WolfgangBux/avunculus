@@ -15,6 +15,7 @@ import PersonAssociations from './PersonAssociations.vue'
 import PersonRelations    from './PersonRelations.vue'
 import PersonPlacesMap    from './PersonPlacesMap.vue'
 import MediaStrip         from './MediaStrip.vue'
+import MediaRegionDialog  from './MediaRegionDialog.vue'
 import { createPerson, updatePerson } from '../api/persons.js'
 import { mediaThumbUrl } from '../api/media.js'
 import { isValidGedcomDate, extractYear, toGedcomDate } from '../gedcom.js'
@@ -39,6 +40,14 @@ const ask    = useAsk()
 // ── Zustand ───────────────────────────────────────────────
 const form    = ref(personFromApi(null))   // sex, restriction, notes, names, events, citations, associations, media
 const isEditing = computed(() => props.editPerson !== null)
+
+// Person auf einem Bild markieren: Ausschnitt kommt vom Server und gilt sofort fürs Vorschaubild
+const regionMedia = ref(null)
+function onRegionSaved(m) {
+  const crop = m.links?.find(l => l.kind === 'person' && l.target_id === personId.value)?.crop ?? null
+  form.value.media = form.value.media.map(x => x.id === m.id ? { ...x, crop } : x)
+  emit('person-saved', null, false)   // Listen und Stammbaum neu laden (Vorschaubild)
+}
 const personId  = computed(() => props.editPerson ? Number(props.editPerson.id) : null)
 
 // Welcher Name / welches Ereignis ist zum Bearbeiten aufgeklappt, was ist in der Leseansicht offen
@@ -164,7 +173,7 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
     <!-- ── Kopf: wer wird bearbeitet? ────────────────────── -->
     <div class="person-header">
       <div :class="['avatar', 'avatar-lg', 'sex-' + (form.sex || 'U'), { 'avatar-photo': photo }]" aria-hidden="true">
-        <img v-if="photo" :src="mediaThumbUrl(photo.id)" alt="" />
+        <img v-if="photo" :src="mediaThumbUrl(photo.id, photo.crop)" alt="" />
         <svg v-else viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="12" r="6"/><path d="M4 32c0-7 5.4-11 12-11s12 4 12 11z"/></svg>
       </div>
       <div class="person-header-text">
@@ -216,7 +225,9 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
     <!-- ── Medien der Person: Fotos, Dokumente; ★ = Hauptbild ── -->
     <fieldset>
       <legend>{{ t('media.title') }}</legend>
-      <MediaStrip v-model="form.media" allow-primary size="md" />
+      <MediaStrip v-model="form.media" allow-primary size="md" :regions="isEditing" @region="m => (regionMedia = m.id)" />
+      <MediaRegionDialog :visible="regionMedia != null" :media-id="regionMedia" :person-id="personId"
+        @update:visible="v => { if (!v) regionMedia = null }" @saved="onRegionSaved" />
       <p v-if="!form.media.length" class="field-hint">{{ t('media.personHint') }}</p>
     </fieldset>
 

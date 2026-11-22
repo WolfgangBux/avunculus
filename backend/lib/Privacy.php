@@ -109,7 +109,7 @@ final class Privacy
             'restriction' => null, 'given_name' => null, 'surname' => null, 'surname_prefix' => null,
             'name_prefix' => null, 'nickname' => null, 'alt_surname' => null, 'name_count' => 0,
             'birth_date' => null, 'birth_place' => null, 'death_date' => null, 'death_place' => null,
-            'photo_id' => null, 'private' => true,
+            'photo_id' => null, 'photo_crop' => null, 'private' => true,
         ];
     }
 

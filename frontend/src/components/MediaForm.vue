@@ -6,6 +6,7 @@ import Button from 'openvue/button'
 import LastChange from './LastChange.vue'
 import SaveStatus from './SaveStatus.vue'
 import MediaThumb from './MediaThumb.vue'
+import MediaRegions from './MediaRegions.vue'
 import { updateMedia, deleteMedia, mediaFileUrl } from '../api/media.js'
 import { toGedcomDate, isValidGedcomDate } from '../gedcom.js'
 import { displayDate } from '../format.js'
@@ -97,9 +98,8 @@ function openLink(l) {
 <template>
   <div class="card media-form">
     <div class="media-preview">
-      <a v-if="kind === 'image'" :href="fileUrl" target="_blank" rel="noopener" :title="t('media.open')">
-        <img :src="fileUrl" :alt="form.title" />
-      </a>
+      <!-- Bild mit markierten Personen (Ausschnitt fürs Vorschaubild); öffnen über „Öffnen“ darunter -->
+      <MediaRegions v-if="kind === 'image'" :media="media" @saved="m => emit('saved', m)" />
       <iframe v-else-if="kind === 'pdf'" :src="fileUrl" :title="form.title || media.original_name" />
       <video v-else-if="kind === 'video'" :src="fileUrl" controls preload="metadata" />
       <audio v-else-if="kind === 'audio'" :src="fileUrl" controls preload="metadata" />

@@ -89,7 +89,7 @@ final class MediaStore
     public static function delete(int $treeId, string $fileName): void
     {
         @unlink(self::path($treeId, $fileName));
-        @unlink(self::thumbPath($treeId, $fileName));
+        foreach (glob(self::thumbPath($treeId, $fileName) . '*') ?: [] as $f) @unlink($f);   // auch Ausschnitte
     }
 
     /** Ganzen Medienordner eines Baums entfernen */
@@ -115,15 +115,20 @@ final class MediaStore
         return in_array($mime, self::THUMBABLE, true) && function_exists('imagecreatetruecolor');
     }
 
-    private static function thumbPath(int $treeId, string $fileName): string
+    /** Vorschaubild; mit Ausschnitt eine eigene Datei je Ausschnitt (…jpg.<l>-<t>-<w>-<h>.jpg) */
+    private static function thumbPath(int $treeId, string $fileName, ?array $crop = null): string
     {
-        return self::treeDir($treeId) . '/thumbs/' . basename($fileName) . '.jpg';
+        $key = $crop ? '.' . implode('-', array_map(fn($v) => (int) round($v * 10000), [$crop['left'], $crop['top'], $crop['width'], $crop['height']])) . '.jpg' : '';
+        return self::treeDir($treeId) . '/thumbs/' . basename($fileName) . '.jpg' . $key;
     }
 
-    /** Vorschaubild (JPEG, längste Seite THUMB_SIZE) – wird beim ersten Abruf erzeugt; null, wenn nicht möglich */
-    public static function thumb(int $treeId, string $fileName, string $mime): ?string
+    /**
+     * Vorschaubild (JPEG, längste Seite THUMB_SIZE) – wird beim ersten Abruf erzeugt; null, wenn nicht möglich.
+     * $crop: nur diesen Ausschnitt zeigen ({left, top, width, height} als Anteile des richtig gedrehten Bilds).
+     */
+    public static function thumb(int $treeId, string $fileName, string $mime, ?array $crop = null): ?string
     {
-        $thumb = self::thumbPath($treeId, $fileName);
+        $thumb = self::thumbPath($treeId, $fileName, $crop);
         if (is_file($thumb)) return $thumb;
         $src = self::path($treeId, $fileName);
         if (!self::canThumb($mime) || !is_file($src)) return null;
@@ -139,12 +144,16 @@ final class MediaStore
         if (!$img) return null;
         if ($mime === 'image/jpeg' && function_exists('exif_read_data')) $img = self::orient($img, $src);
 
-        $w = imagesx($img); $h = imagesy($img);
+        $iw = imagesx($img); $ih = imagesy($img);
+        [$x, $y, $w, $h] = $crop
+            ? [(int) round($crop['left'] * $iw), (int) round($crop['top'] * $ih),
+               max(1, (int) round($crop['width'] * $iw)), max(1, (int) round($crop['height'] * $ih))]
+            : [0, 0, $iw, $ih];
         $scale = min(1, self::THUMB_SIZE / max($w, $h));
         $tw = max(1, (int) round($w * $scale)); $th = max(1, (int) round($h * $scale));
         $out = imagecreatetruecolor($tw, $th);
         imagefill($out, 0, 0, imagecolorallocate($out, 255, 255, 255));   // Transparenz auf Weiß
-        imagecopyresampled($out, $img, 0, 0, 0, 0, $tw, $th, $w, $h);
+        imagecopyresampled($out, $img, 0, 0, $x, $y, $tw, $th, $w, $h);
         if (!is_dir(dirname($thumb))) @mkdir(dirname($thumb), 0775, true);
         $ok = imagejpeg($out, $thumb, 82);
         unset($img, $out);   // große Fotos sofort freigeben (imagedestroy ist seit PHP 8.0 wirkungslos, ab 8.5 veraltet)

@@ -27,7 +27,7 @@ export function changeTime(s) {
 /** Was getan wurde, als kurzer Text, z. B. „Kind hinzugefügt: Anna Huber“ */
 export function changeAction(c) {
   const d   = c.details ?? {}
-  const key = 'changes.actions.' + c.action
+  const key = 'changes.actions.' + c.action + (c.action === 'region' && d.removed ? 'Removed' : '')
   let text  = t(key)
   if (text === key) text = c.action           // unbekannte (neue) Aktion: Name aus routes.php
   const extra = []

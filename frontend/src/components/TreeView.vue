@@ -550,7 +550,7 @@ function onNodeClick(n) {
           >
             <template v-if="n.person">
               <div :class="['avatar', 'avatar-sm', { 'avatar-photo': n.person.photo_id }]" aria-hidden="true">
-                <img v-if="n.person.photo_id" :src="mediaThumbUrl(n.person.photo_id)" alt="" loading="lazy" />
+                <img v-if="n.person.photo_id" :src="mediaThumbUrl(n.person.photo_id, n.person.photo_crop)" alt="" loading="lazy" />
                 <svg v-else viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="12" r="6"/><path d="M4 32c0-7 5.4-11 12-11s12 4 12 11z"/></svg>
               </div>
               <div class="tree-node-info">

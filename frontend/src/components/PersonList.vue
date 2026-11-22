@@ -115,6 +115,7 @@ export default defineComponent({
         name_count: sp.names?.length ?? 1,
         birth_date: ev('BIRT')?.event_date, birth_place: ev('BIRT')?.event_place, death_date: ev('DEAT')?.event_date,
         photo_id: sp.media?.find(m => m.is_primary)?.id ?? null,
+        photo_crop: sp.media?.find(m => m.is_primary)?.crop ?? null,
         _pinned: true,
       }
     })
@@ -185,7 +186,7 @@ export default defineComponent({
       @keydown.enter="emit('edit', p)"
     >
       <div :class="['avatar', { 'avatar-photo': p.photo_id }]" aria-hidden="true">
-        <img v-if="p.photo_id" :src="mediaThumbUrl(p.photo_id)" alt="" loading="lazy" />
+        <img v-if="p.photo_id" :src="mediaThumbUrl(p.photo_id, p.photo_crop)" alt="" loading="lazy" />
         <svg v-else viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="12" r="6"/><path d="M4 32c0-7 5.4-11 12-11s12 4 12 11z"/></svg>
       </div>
 

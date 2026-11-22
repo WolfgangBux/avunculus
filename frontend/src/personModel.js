@@ -93,7 +93,8 @@ export function listName(person) {
 // Ereignisse, Namen, Quellenangaben und Verknüpfungen tragen ihre ID (neue: keine bzw. null).
 // Das Backend gleicht damit ab: vorhandene Zeilen behalten ihre ID (Verweise, Änderungshistorie).
 const str      = v => v ?? ''
-const mediaItem = m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type, is_primary: !!m.is_primary })
+// crop: Ausschnitt der Person auf dem Bild (nur Anzeige; gesetzt wird er über media/{id}/region, nicht mit der Person)
+const mediaItem = m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type, is_primary: !!m.is_primary, crop: m.crop ?? null })
 const citationFromApi = c => ({
   id: c.id ?? null,
   source_id: str(c.source_id), source_label: c.source_abbreviation || c.source_title || '', page: str(c.page), transcription: str(c.transcription), url: str(c.url),

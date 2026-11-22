@@ -15,7 +15,18 @@ export const deleteMedia = (id)       => request('DELETE', `/media/${id}`)
 // <img src> / Links können keinen Header setzen – Baum als Parameter
 export const mediaFileUrl  = (id, { download = false } = {}) =>
   apiUrl(`/media/${id}/file?tree=${currentTreeId.value}`) + (download ? '&download=1' : '')
-export const mediaThumbUrl = (id) => apiUrl(`/media/${id}/thumb?tree=${currentTreeId.value}`)
+/**
+ * Vorschaubild; crop = Ausschnitt einer Person auf dem Bild – als Objekt { left, top, width, height }
+ * (Medien einer Person) oder schon als Text „l,t,w,h“ (photo_crop der schlanken Personendaten)
+ */
+export function mediaThumbUrl(id, crop = null) {
+  const c = typeof crop === 'string' ? crop
+          : crop ? [crop.left, crop.top, crop.width, crop.height].map(v => Math.round(v * 10000) / 10000).join(',') : ''
+  return apiUrl(`/media/${id}/thumb?tree=${currentTreeId.value}`) + (c ? `&crop=${c}` : '')
+}
+
+/** Ausschnitt einer verknüpften Person auf dem Bild setzen (crop null = entfernen); liefert das Medium */
+export const saveMediaRegion = (id, personId, crop) => request('PUT', `/media/${id}/region`, { person_id: personId, crop })
 
 export const isImage = m => (m?.mime_type ?? '').startsWith('image/')
 

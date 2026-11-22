@@ -6,7 +6,8 @@ declare(strict_types=1);
  * Lese-Abfragen für Personenlisten, die auch bei sehr großen Bäumen (50.000+ Personen) schnell bleiben.
  *
  * „Schlanke“ Personen enthalten nur, was Listen, Suche und Stammbaum anzeigen:
- * id, sex, Hauptname, Anzahl Namen, Geburt und Tod (Datum, Ort).
+ * id, sex, Hauptname, Anzahl Namen, Geburt und Tod (Datum, Ort), Hauptbild (photo_id) mit Ausschnitt
+ * der Person darauf (photo_crop „l,t,w,h“ als Anteile, für media/{id}/thumb?crop=… – null = ganzes Bild).
  */
 final class PersonQuery
 {
@@ -53,7 +54,8 @@ final class PersonQuery
                    ) END AS alt_surname,
                    b.event_date AS birth_date, bp.full_name AS birth_place,
                    d.event_date AS death_date, dp.full_name AS death_place,
-                   (SELECT pm.media_id FROM person_media pm WHERE pm.person_id = p.id AND pm.is_primary = 1 LIMIT 1) AS photo_id
+                   (SELECT CONCAT_WS(',', pm.media_id, pm.crop_left, pm.crop_top, pm.crop_width, pm.crop_height)
+                    FROM person_media pm WHERE pm.person_id = p.id AND pm.is_primary = 1 LIMIT 1) AS photo
             FROM persons p
             LEFT JOIN fn      ON fn.person_id = p.id
             LEFT JOIN ev b    ON b.person_id = p.id AND b.event_type = 'BIRT'
@@ -63,8 +65,13 @@ final class PersonQuery
             WHERE p.tree_id = ? $in
         ");
         $stmt->execute([$this->treeId, ...$params, $this->treeId, ...$params, $this->treeId, ...$params]);
-        $rows = array_map(fn($r) => Privacy::maskSlim([...$r, 'id' => (int) $r['id'], 'name_count' => (int) $r['name_count'],
-                                     'photo_id' => $r['photo_id'] !== null ? (int) $r['photo_id'] : null]), $stmt->fetchAll());
+        $rows = array_map(function ($r) {
+            $photo = $r['photo'] !== null ? explode(',', $r['photo']) : [];
+            unset($r['photo']);
+            return Privacy::maskSlim([...$r, 'id' => (int) $r['id'], 'name_count' => (int) $r['name_count'],
+                'photo_id'   => $photo ? (int) $photo[0] : null,
+                'photo_crop' => count($photo) === 5 ? implode(',', array_map(fn($v) => round((float) $v, 4), array_slice($photo, 1))) : null]);
+        }, $stmt->fetchAll());
 
         $byId = array_column($rows, null, 'id');
         return array_values(array_filter(array_map(fn($id) => $byId[$id] ?? null, $ids)));

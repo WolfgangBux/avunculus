@@ -16,7 +16,7 @@ CREATE TABLE settings (
     name  VARCHAR(64) NOT NULL PRIMARY KEY,
     value TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-INSERT INTO settings (name, value) VALUES ('schema_version', '1');
+INSERT INTO settings (name, value) VALUES ('schema_version', '2');
 
 -- Benutzer; ohne Anmeldung ist man Besucher (sieht nur öffentliche Bäume, Lebende anonymisiert)
 CREATE TABLE users (
@@ -324,6 +324,12 @@ CREATE TABLE person_media (
     media_id   INT UNSIGNED NOT NULL,
     is_primary TINYINT(1)   NOT NULL DEFAULT 0 COMMENT 'Hauptbild der Person (_PRIM)',
     sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Ausschnitt der Person auf dem Bild (Anteile 0–1 des richtig gedrehten Bilds; NULL = ganzes Bild)
+    crop_left   DECIMAL(7,6) NULL COMMENT 'Ausschnitt: linker Rand als Anteil der Bildbreite (0–1)',
+    crop_top    DECIMAL(7,6) NULL COMMENT 'oberer Rand als Anteil der Bildhöhe',
+    crop_width  DECIMAL(7,6) NULL COMMENT 'Breite als Anteil der Bildbreite',
+    crop_height DECIMAL(7,6) NULL COMMENT 'Höhe als Anteil der Bildhöhe',
+    crop_shape  VARCHAR(10)  NULL COMMENT 'rect oder ellipse (nur Darstellung der Markierung)',
     FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE CASCADE,
     FOREIGN KEY (media_id)  REFERENCES media(id)   ON DELETE CASCADE,
     INDEX idx_person (person_id, is_primary),

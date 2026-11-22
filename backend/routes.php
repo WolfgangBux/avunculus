@@ -97,6 +97,7 @@ return [
     ['GET',    'media/{id}/thumb',                MediaController::class,      'thumb',            $G],
     ['POST',   'media/upload',                    MediaController::class,      'upload',           $E],
     ['PUT',    'media/{id}',                      MediaController::class,      'update',           $E],
+    ['PUT',    'media/{id}/region',               MediaController::class,      'region',           $E],   // Ausschnitt einer Person
     ['DELETE', 'media/{id}',                      MediaController::class,      'destroy',          $E],
 
     // ── Einstellungen, Version und Updates ──────────────────────────────────────

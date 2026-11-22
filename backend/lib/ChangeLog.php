@@ -21,7 +21,7 @@ final class ChangeLog
     /** nicht protokolliert: Baum löschen (das Protokoll des Baums verschwindet mit ihm) */
     private const SKIP = ['tree.destroy'];
     /** Aktionen, deren Anfragekörper Angaben fürs Protokoll enthält */
-    private const BODY_ACTIONS = ['addMember', 'addEvent', 'updateEvent', 'merge', 'commitImport', 'relativesTree'];
+    private const BODY_ACTIONS = ['addMember', 'addEvent', 'updateEvent', 'merge', 'commitImport', 'relativesTree', 'region'];
 
     /** Speichern, bei dem festgehalten wird, welche Felder sich geändert haben (ChangeDiff) */
     private const DIFF_ACTIONS = ['person.update', 'family.update', 'family.updateEvent', 'source.update',
@@ -110,6 +110,7 @@ final class ChangeLog
 
         match ($this->action) {
             'addMember'                       => $this->detailPerson((int) ($this->body['person_id'] ?? 0), $this->body['role'] ?? null),
+            'region'                          => $this->detailRegion(),
             'addEvent', 'updateEvent'         => $this->details['event_type'] = $this->body['event_type'] ?? null,
             'merge'                           => $this->details += ['target_id' => (int) ($this->body['target_id'] ?? 0),
                                                                     'target'    => $this->label('place', (int) ($this->body['target_id'] ?? 0))],
@@ -137,6 +138,13 @@ final class ChangeLog
     private function entityId(): int
     {
         return (int) ($this->args[0] ?? 0);
+    }
+
+    /** Person auf einem Bild markiert (removed: Markierung entfernt) */
+    private function detailRegion(): void
+    {
+        $this->detailPerson((int) ($this->body['person_id'] ?? 0));
+        if (empty($this->body['crop'])) $this->details['removed'] = true;
     }
 
     private function detailPerson(int $personId, ?string $role = null): void

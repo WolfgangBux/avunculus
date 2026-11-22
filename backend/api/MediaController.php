@@ -153,13 +153,36 @@ class MediaController extends TreeScopedController
             . "; filename=\"$ascii\"; filename*=UTF-8''" . rawurlencode($name));
     }
 
-    // GET /api/media/{id}/thumb  –  verkleinertes JPEG; 404, wenn es keins gibt (Frontend zeigt dann ein Symbol)
+    // GET /api/media/{id}/thumb[?crop=l,t,w,h]  –  verkleinertes JPEG, auf Wunsch nur ein Ausschnitt (Anteile 0–1);
+    // 404, wenn es keins gibt (Frontend zeigt dann ein Symbol)
     public function thumb(int $id): void
     {
-        $m     = $this->findOrFail($id);
-        $thumb = MediaStore::thumb($this->treeId, $m['file_name'], $m['mime_type']);
+        $m    = $this->findOrFail($id);
+        $crop = null;
+        if (isset($_GET['crop'])) {
+            $p = explode(',', (string) $_GET['crop']);
+            $crop = count($p) === 4 ? MediaLinks::normalizeCrop(array_combine(['left', 'top', 'width', 'height'], $p)) : null;
+        }
+        $thumb = MediaStore::thumb($this->treeId, $m['file_name'], $m['mime_type'], $crop);
         if (!$thumb) { $this->json(['error' => 'Kein Vorschaubild'], 404); return; }
-        $this->sendFile($thumb, 'image/jpeg', $m['checksum'] . '-t', 'inline');
+        $this->sendFile($thumb, 'image/jpeg', $m['checksum'] . '-t' . ($crop ? '-' . md5(basename($thumb)) : ''), 'inline');
+    }
+
+    /**
+     * PUT /api/media/{id}/region  { person_id, crop: {left, top, width, height, shape} | null }
+     * Ausschnitt einer verknüpften Person auf diesem Bild setzen oder entfernen. Antwort: das Medium wie bei show.
+     */
+    public function region(int $id): void
+    {
+        $this->findOrFail($id);
+        $b        = $this->body();
+        $personId = (int) ($b['person_id'] ?? 0);
+        $crop     = $b['crop'] ?? null;
+        if ($crop !== null && !MediaLinks::normalizeCrop($crop)) throw new HttpError(422, 'Ungültiger Ausschnitt');
+        if (!$this->inTree('persons', $personId) || !(new MediaLinks($this->db, $this->treeId))->setCrop($id, $personId, $crop)) {
+            throw new HttpError(404, 'Die Person ist mit diesem Medium nicht verknüpft.');
+        }
+        $this->show($id);
     }
 
     // -------------------------------------------------------------------------
@@ -226,18 +249,20 @@ class MediaController extends TreeScopedController
                                            FROM family_members fm JOIN person_names n ON n.id = (
                                                SELECT id FROM person_names WHERE person_id = fm.person_id ORDER BY sort_order, id LIMIT 1)
                                            WHERE fm.family_id = $fid AND fm.role IN ('HUSB', 'WIFE'))";
+        $noCrop  = 'NULL, NULL, NULL, NULL, NULL';
         $queries = [
             'person'       => "SELECT 'person' AS kind, l.person_id AS target_id, l.is_primary, NULL AS event_type, NULL AS event_date,
-                                      p.sex, {$personName('l.person_id')} AS label
+                                      p.sex, {$personName('l.person_id')} AS label,
+                                      l.crop_left, l.crop_top, l.crop_width, l.crop_height, l.crop_shape
                                FROM person_media l JOIN persons p ON p.id = l.person_id WHERE l.media_id = ?",
-            'event'        => "SELECT 'event', e.person_id, 0, e.event_type, e.event_date, p.sex, {$personName('e.person_id')}
+            'event'        => "SELECT 'event', e.person_id, 0, e.event_type, e.event_date, p.sex, {$personName('e.person_id')}, $noCrop
                                FROM event_media l JOIN person_events e ON e.id = l.event_id JOIN persons p ON p.id = e.person_id
                                WHERE l.media_id = ?",
-            'family'       => "SELECT 'family', l.family_id, 0, NULL, NULL, NULL, {$partners('l.family_id')}
+            'family'       => "SELECT 'family', l.family_id, 0, NULL, NULL, NULL, {$partners('l.family_id')}, $noCrop
                                FROM family_media l WHERE l.media_id = ?",
-            'family_event' => "SELECT 'family_event', e.family_id, 0, e.event_type, e.event_date, NULL, {$partners('e.family_id')}
+            'family_event' => "SELECT 'family_event', e.family_id, 0, e.event_type, e.event_date, NULL, {$partners('e.family_id')}, $noCrop
                                FROM family_event_media l JOIN family_events e ON e.id = l.event_id WHERE l.media_id = ?",
-            'source'       => "SELECT 'source', s.id, 0, NULL, NULL, NULL, s.title
+            'source'       => "SELECT 'source', s.id, 0, NULL, NULL, NULL, s.title, $noCrop
                                FROM source_media l JOIN sources s ON s.id = l.source_id WHERE l.media_id = ?",
         ];
         $stmt = $this->db->prepare(implode("\nUNION ALL\n", $queries));
@@ -250,6 +275,7 @@ class MediaController extends TreeScopedController
             'event_type' => $r['event_type'],
             'event_date' => $r['event_date'],
             'is_primary' => (bool) $r['is_primary'],
+            'crop'       => $r['kind'] === 'person' ? MediaLinks::cropFromRow($r) : null,
         ], $stmt->fetchAll());
     }
 

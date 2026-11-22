@@ -101,7 +101,7 @@ const counts = computed(() => {
     <div :class="['tree-hover', sexClass(p)]" :style="style" role="tooltip">
       <div class="tree-hover-head">
         <div :class="['avatar', 'tree-hover-avatar', { 'avatar-photo': p.photo_id }]" aria-hidden="true">
-          <img v-if="p.photo_id" :src="mediaThumbUrl(p.photo_id)" alt="" />
+          <img v-if="p.photo_id" :src="mediaThumbUrl(p.photo_id, p.photo_crop)" alt="" />
           <svg v-else viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="12" r="6"/><path d="M4 32c0-7 5.4-11 12-11s12 4 12 11z"/></svg>
         </div>
         <div class="tree-hover-name">
