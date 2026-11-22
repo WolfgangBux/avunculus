@@ -11,6 +11,35 @@ class SystemController extends BaseController
         $this->json((new Updater($this->db))->status(!empty($_GET['refresh'])));
     }
 
+    // GET /api/system/settings  –  Einstellungen, die der Admin in der Oberfläche ändern darf
+    public function settings(): void
+    {
+        $out = [];
+        foreach (Settings::EDITABLE as $name) $out[$name] = Settings::get($this->db, $name) ?? '';
+        $this->json($out);
+    }
+
+    // PUT /api/system/settings  –  body: { imprint_url?, privacy_url? }  –  leer = kein Link
+    public function saveSettings(): void
+    {
+        $data   = $this->body();
+        $values = [];
+        $errors = [];
+        foreach (Settings::EDITABLE as $name) {
+            if (!array_key_exists($name, $data)) continue;
+            $v = trim((string) $data[$name]);
+            // Nur echte Webadressen – sonst ließe sich über den Link Skript einschleusen (javascript:…)
+            if ($v !== '' && (strlen($v) > 500 || !preg_match('~^https?://[^\s<>"]+$~i', $v)
+                              || !filter_var($v, FILTER_VALIDATE_URL))) {
+                $errors[$name] = 'Bitte eine Adresse mit http:// oder https:// eingeben';
+            }
+            $values[$name] = $v;
+        }
+        if ($errors) { $this->json(['errors' => $errors], 422); return; }
+        foreach ($values as $name => $v) Settings::set($this->db, $name, $v === '' ? null : $v);
+        $this->settings();
+    }
+
     // POST /api/system/update  –  body: { version }  –  neueste Version installieren
     public function installUpdate(): void
     {

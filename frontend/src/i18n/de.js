@@ -4,6 +4,8 @@ export default {
     source:     'Quellcode',
     license:    'Lizenz: AGPL-3.0',
     thirdParty: 'Lizenzen verwendeter Bibliotheken',
+    imprint:    'Impressum',
+    privacy:    'Datenschutz',
   },
   nav: {
     tree:    'Stammbaum',
@@ -254,6 +256,16 @@ export default {
   common: {
     empty:   'Keine Einträge',
     loading: 'Lade…',
+  },
+  settings: {
+    menu:         'Einstellungen…',
+    title:        'Einstellungen',
+    legalIntro:   'Wer Avunculus öffentlich im Internet betreibt, braucht oft ein Impressum und eine Datenschutzerklärung. Tragen Sie hier die Adressen Ihrer Seiten ein – die Links erscheinen dann in der Fußzeile und beim Anmelden. Leer lassen = kein Link.',
+    imprintUrl:   'Adresse des Impressums',
+    privacyUrl:   'Adresse der Datenschutzerklärung',
+    saved:        'Die Einstellungen wurden gespeichert.',
+    loadError:    'Die Einstellungen konnten nicht geladen werden.',
+    invalidUrl:   'Bitte eine vollständige Adresse mit https:// oder http:// eingeben.',
   },
   update: {
     menu:          'Nach Updates suchen',

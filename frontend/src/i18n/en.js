@@ -4,6 +4,8 @@ export default {
     source:     'Source code',
     license:    'License: AGPL-3.0',
     thirdParty: 'Licenses of included libraries',
+    imprint:    'Legal notice',
+    privacy:    'Privacy policy',
   },
   nav: {
     tree:    'Family tree',
@@ -254,6 +256,16 @@ export default {
   common: {
     empty:   'No entries',
     loading: 'Loading…',
+  },
+  settings: {
+    menu:         'Settings…',
+    title:        'Settings',
+    legalIntro:   'If you run Avunculus publicly on the internet, you may need a legal notice (imprint) and a privacy policy. Enter the addresses of your pages here and the links appear in the footer and when signing in. Leave empty for no link.',
+    imprintUrl:   'Address of the legal notice',
+    privacyUrl:   'Address of the privacy policy',
+    saved:        'The settings have been saved.',
+    loadError:    'The settings could not be loaded.',
+    invalidUrl:   'Please enter a complete address starting with https:// or http://.',
   },
   update: {
     menu:          'Check for updates',

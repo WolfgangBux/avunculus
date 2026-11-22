@@ -4,7 +4,7 @@ import Dialog from 'openvue/dialog'
 import Button from 'openvue/button'
 import InputText from 'openvue/inputtext'
 import Password from 'openvue/password'
-import { login, setup } from '../auth.js'
+import { login, setup, legalLinks } from '../auth.js'
 import { t } from '../i18n/index.js'
 
 // setupMode: Es gibt noch keinen Benutzer – ersten Administrator anlegen (lässt sich nicht schließen)
@@ -85,6 +85,10 @@ async function submit() {
       </div>
 
       <small v-if="error" class="error-msg">{{ error }}</small>
+      <p v-if="!setupMode && (legalLinks.imprint_url || legalLinks.privacy_url)" class="legal-links muted">
+        <a v-if="legalLinks.imprint_url" :href="legalLinks.imprint_url" target="_blank" rel="noopener">{{ t('app.imprint') }}</a>
+        <a v-if="legalLinks.privacy_url" :href="legalLinks.privacy_url" target="_blank" rel="noopener">{{ t('app.privacy') }}</a>
+      </p>
       <button type="submit" hidden />
     </form>
 
@@ -98,4 +102,6 @@ async function submit() {
 <style scoped>
 .auth-form { display: flex; flex-direction: column; gap: 0.9rem; }
 .auth-form .form-group { margin: 0; }
+.legal-links { display: flex; gap: 1rem; margin: 0; font-size: .8rem; }
+.legal-links a { color: inherit; }
 </style>

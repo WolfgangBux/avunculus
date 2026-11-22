@@ -79,6 +79,10 @@ The `.htaccess` file sends every request through `router.php`, which only serves
 
 Environment variables, where set, take precedence over `backend/.env`.
 
+#### Legal notice and privacy policy
+
+Whoever runs an installation is responsible for its legal notice (imprint) and privacy policy. If you run Avunculus publicly, sign in as administrator, open *Settings…* in the user menu and enter the addresses of your pages. The links then appear in the footer and in the sign-in dialog. Leave a field empty for no link.
+
 #### Your own server settings
 
 Some hosts need extra settings, for example to write a PHP error log. Put them in `.htaccess` **below the line `# END Avunculus`**: updates only replace the part between `# BEGIN Avunculus` and `# END Avunculus` and keep everything else. Settings that are purely PHP (`error_log`, `memory_limit` …) can also go into a file `.user.ini` in the installation folder, if your host supports it; Avunculus never ships or changes that file.

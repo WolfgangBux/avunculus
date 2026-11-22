@@ -7,10 +7,11 @@ class AuthController extends BaseController
 {
     public const MIN_PASSWORD = 8;
 
-    // GET /api/auth/me  –  { user: {…} | null, setup: true, wenn es noch keinen Benutzer gibt }
+    // GET /api/auth/me  –  { user: {…} | null, setup: true, wenn es noch keinen Benutzer gibt,
+    //                      legal: { imprint_url?, privacy_url? } für die Fußzeile (auch für Besucher) }
     public function me(): void
     {
-        $this->json(['user' => Auth::user(), 'setup' => $this->needsSetup()]
+        $this->json(['user' => Auth::user(), 'setup' => $this->needsSetup(), 'legal' => (object) Settings::legalLinks($this->db)]
                     + (Auth::user() ? ['version' => AppInfo::version()] : []));
     }
 

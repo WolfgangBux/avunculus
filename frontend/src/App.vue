@@ -36,8 +36,9 @@ import PasswordDialog  from './components/PasswordDialog.vue'
 import UserAdminDialog from './components/UserAdminDialog.vue'
 import ChangeLogDialog from './components/ChangeLogDialog.vue'
 import UpdateDialog from './components/UpdateDialog.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import { checkUpdates, updateAvailable } from './composables/updates.js'
-import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel } from './auth.js'
+import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel, legalLinks } from './auth.js'
 import { useNotify } from './composables/feedback.js'
 import { useHashRoute } from './composables/hashRoute.js'
 import { useFileMenu, useUserMenu } from './composables/appMenus.js'
@@ -45,7 +46,7 @@ import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, UpdateDialog },
+                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -85,10 +86,12 @@ export default defineComponent({
     const showLogin    = ref(false)
     const showPassword = ref(false)
     const showUsers    = ref(false)
+    const showSettings = ref(false)
     const userMenu     = ref(null)
     const userMenuItems = useUserMenu({ on: {
       password: () => { showPassword.value = true },
       users:    () => { showUsers.value = true },
+      settings: () => { showSettings.value = true },
       logout:   () => doLogout(),
     } })
 
@@ -394,7 +397,7 @@ export default defineComponent({
       updateAvailable,
       SOURCE_URL, APP_VERSION, LICENSES_URL,
       t, locale, setLocale, availableLocales,
-      user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, userMenu, userMenuItems, onLoggedIn,
+      user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
       view, treeRootId, startPersonId, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
       trees, currentTree, currentTreeId, showOpen, showNew, showImport, fileMenu, fileMenuItems,
       loadTrees, openTree, onTreeDeleted,
@@ -603,6 +606,8 @@ export default defineComponent({
   <a :href="SOURCE_URL" target="_blank" rel="noopener">{{ t('app.source') }}</a>
   <a :href="SOURCE_URL + '/blob/main/LICENSE'" target="_blank" rel="noopener">{{ t('app.license') }}</a>
   <a :href="LICENSES_URL" target="_blank" rel="noopener">{{ t('app.thirdParty') }}</a>
+  <a v-if="legalLinks.imprint_url" :href="legalLinks.imprint_url" target="_blank" rel="noopener">{{ t('app.imprint') }}</a>
+  <a v-if="legalLinks.privacy_url" :href="legalLinks.privacy_url" target="_blank" rel="noopener">{{ t('app.privacy') }}</a>
 </footer>
 
 <FamilyModal
@@ -618,6 +623,7 @@ export default defineComponent({
 <LoginDialog v-model:visible="showLogin" :setup-mode="needsSetup" @done="onLoggedIn" />
 <PasswordDialog v-model:visible="showPassword" />
 <UserAdminDialog v-if="isAdmin" v-model:visible="showUsers" />
+<SettingsDialog v-if="isAdmin" v-model:visible="showSettings" />
 <ChangeLogDialog v-if="canEdit" />
 <UpdateDialog v-if="isAdmin" />
 <TreeNewDialog v-model:visible="showNew" @created="openTree" />

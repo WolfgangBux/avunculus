@@ -40,11 +40,12 @@ function exportGedcom({ media = false } = {}) {
   a.remove()
 }
 
-/** Benutzermenü (angemeldet).  on: { password, users, logout } */
+/** Benutzermenü (angemeldet).  on: { password, users, settings, logout } */
 export function useUserMenu({ on }) {
   return computed(() => [
     { label: t('auth.changePassword'), icon: 'pi pi-key',      command: on.password },
     { label: t('auth.manageUsers'),    icon: 'pi pi-users',    visible: isAdmin.value, command: on.users },
+    { label: t('settings.menu'),       icon: 'pi pi-cog',      visible: isAdmin.value, command: on.settings },
     { label: updateAvailable.value ? t('update.available', { version: updateStatus.value.latest }) : t('update.menu'),
       icon: updateAvailable.value ? 'pi pi-arrow-circle-up' : 'pi pi-sync', visible: isAdmin.value,
       class: updateAvailable.value ? 'menu-highlight' : undefined, command: () => { showUpdate.value = true } },

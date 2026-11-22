@@ -97,7 +97,9 @@ return [
     ['PUT',    'media/{id}',                      MediaController::class,      'update',           $E],
     ['DELETE', 'media/{id}',                      MediaController::class,      'destroy',          $E],
 
-    // ── Version und Updates ─────────────────────────────────────────────────────
+    // ── Einstellungen, Version und Updates ──────────────────────────────────────
+    ['GET',    'system/settings',                 SystemController::class,     'settings',         $A],
+    ['PUT',    'system/settings',                 SystemController::class,     'saveSettings',     $A],
     ['GET',    'system/update',                   SystemController::class,     'updateStatus',     $A],
     ['POST',   'system/update',                   SystemController::class,     'installUpdate',    $A],
 
