@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import Button from 'openvue/button'
 import LastChange from './LastChange.vue'
+import SaveStatus from './SaveStatus.vue'
 import Textarea from 'openvue/textarea'
 import Select from 'openvue/select'
 import InputText from 'openvue/inputtext'
@@ -15,6 +16,8 @@ import {
   addFamilyMember, removeFamilyMember, updateFamilyMember,
 } from '../api/families.js'
 import { useAsk, useNotify } from '../composables/feedback.js'
+import { useRecordAutosave } from '../composables/autosave.js'
+import { isFilledCitation } from '../personModel.js'
 import { sexClass } from '../format.js'
 import { extractYear } from '../gedcom.js'
 import { t } from '../i18n/index.js'
@@ -31,11 +34,9 @@ const notify = useNotify()
 
 const family  = ref(null)
 const loading = ref(false)
-const notes     = ref('')
-const citations = ref([])    // Quellenangaben direkt an der Familie (FAM.SOUR)
-const media     = ref([])    // Medien der Familie (z. B. Hochzeitsfoto)
-const mediaOf   = fam => (fam?.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type }))
-const saving    = ref(false)
+// Notizen, Quellenangaben direkt an der Familie (FAM.SOUR) und Medien (z. B. Hochzeitsfoto) – werden automatisch gespeichert
+const form    = ref({ notes: '', citations: [], media: [] })
+const mediaOf = fam => (fam?.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type }))
 
 const blankCitation = () => ({ source_id: null, source_label: '', page: '', url: '', transcription: '', quality: null })
 // mit ID: das Backend gleicht ab, vorhandene Quellenangaben behalten ihre ID
@@ -44,18 +45,12 @@ const citationsOf   = fam => (fam?.citations ?? []).map(c => ({
 }))
 const adding  = ref(null)    // 'HUSB' | 'WIFE' | 'CHIL' | null
 
+// Nach Änderungen an Mitgliedern/Ereignissen leise nachladen; ausstehende Notizen/Quellen bleiben (siehe useRecordAutosave)
 async function load(quiet = false) {
   if (!props.familyId) { family.value = null; return }
   if (!quiet) loading.value = true
-  // Nach Änderungen an Mitgliedern/Ereignissen leise nachladen, ohne ungespeicherte Notizen/Quellen zu verwerfen
-  const keepEdits = quiet && dirty.value
   try {
     family.value = await fetchFamily(props.familyId)
-    if (!keepEdits) {
-      notes.value     = family.value.notes ?? ''
-      citations.value = citationsOf(family.value)
-      media.value     = mediaOf(family.value)
-    }
   } catch {
     notify.error(t('families.loadError'))
   } finally {
@@ -79,10 +74,30 @@ async function setPedigree(m, value) {
   }
 }
 const excludeIds = computed(() => family.value?.members.map(m => m.person_id) ?? [])
-const dirty = computed(() => !!family.value && (
-  (family.value.notes ?? '') !== notes.value ||
-  JSON.stringify(citationsOf(family.value)) !== JSON.stringify(citations.value) ||
-  JSON.stringify(mediaOf(family.value).map(m => m.id)) !== JSON.stringify(media.value.map(m => m.id))))
+
+const { status, flush, discard } = useRecordAutosave({
+  form,
+  record:  () => family.value,
+  enabled: () => canEdit.value,
+  load(fam) {
+    form.value = { notes: fam?.notes ?? '', citations: citationsOf(fam), media: mediaOf(fam) }
+  },
+  payload: f => ({ notes: f.notes, citations: f.citations.map(c => ({ ...c })), media: f.media.map(m => ({ id: m.id })) }),
+  validate: () => true,
+  save:    (id, data) => updateFamily(id, data),
+  // neue Quellenangaben bekommen ihre ID (sonst beim nächsten Speichern doppelt); leere übergeht der Server
+  before:  f => f.citations.filter(isFilledCitation),
+  adopt(rows, data, fam) {
+    const saved = fam.citations ?? []
+    if (rows.length !== saved.length) return false
+    const sent = data.citations.filter(isFilledCitation)
+    rows.forEach((c, i) => { c.id = sent[i].id = saved[i].id })
+  },
+  saved(fam, shown) {
+    if (shown) family.value = fam
+    emit('changed')
+  },
+})
 
 async function changed() {
   emit('changed')
@@ -109,26 +124,10 @@ async function removeMember(m) {
   }
 }
 
-async function saveNotes() {
-  saving.value = true
-  try {
-    // Antwort des Servers übernehmen: neue Quellenangaben bekommen dort ihre ID (sonst beim nächsten Speichern doppelt)
-    family.value    = await updateFamily(props.familyId, { notes: notes.value, citations: citations.value, media: media.value.map(m => ({ id: m.id })) })
-    notes.value     = family.value.notes ?? ''
-    citations.value = citationsOf(family.value)
-    media.value     = mediaOf(family.value)
-    notify.success(t('families.notesSaved'))
-    await changed()
-  } catch {
-    notify.error(t('action.saveError'))
-  } finally {
-    saving.value = false
-  }
-}
-
 async function removeFamily() {
   const name = [...membersOf('HUSB'), ...membersOf('WIFE')].map(m => m.display_name).join(' & ') || t('families.noPartners')
   if (!(await ask(t('families.deleteConfirm', { name })))) return
+  discard()
   try {
     await deleteFamily(props.familyId)
     emit('deleted', props.familyId)
@@ -160,7 +159,10 @@ async function createWith(person) {
     <p v-else-if="loading" class="muted">{{ t('common.loading') }}</p>
 
     <template v-else-if="family">
-      <h2 class="card-title">{{ t('families.editTitle') }}</h2>
+      <div class="card-title-row">
+        <h2 class="card-title">{{ t('families.editTitle') }}</h2>
+        <SaveStatus v-if="canEdit" :status="status" @retry="flush" />
+      </div>
 
       <!-- Partner -->
       <fieldset>
@@ -211,7 +213,7 @@ async function createWith(person) {
       <!-- Quellen der Familie (nicht an ein Ereignis gebunden) -->
       <fieldset>
         <legend>{{ t('families.sources') }}</legend>
-        <div v-for="(cit, ci) in citations" :key="ci" class="sub-card">
+        <div v-for="(cit, ci) in form.citations" :key="ci" class="sub-card">
           <div class="sub-grid">
             <div class="form-group">
               <label>{{ t('person.citations.sourceLabel') }}</label>
@@ -222,7 +224,7 @@ async function createWith(person) {
               <InputText v-model="cit.page" :placeholder="t('person.citations.pagePlaceholder')" fluid />
             </div>
             <Button v-if="canEdit" icon="pi pi-trash" severity="danger" text rounded class="sub-remove"
-              :aria-label="t('action.remove')" v-tooltip.top="t('action.remove')" @click="citations.splice(ci, 1)" />
+              :aria-label="t('action.remove')" v-tooltip.top="t('action.remove')" @click="form.citations.splice(ci, 1)" />
             <div class="form-group">
               <label>{{ t('person.citations.quality.label') }}</label>
               <QualitySelect v-model="cit.quality" />
@@ -238,31 +240,29 @@ async function createWith(person) {
             </div>
           </div>
         </div>
-        <p v-if="!citations.length" class="field-hint">{{ t('families.sourcesHint') }}</p>
+        <p v-if="!form.citations.length" class="field-hint">{{ t('families.sourcesHint') }}</p>
         <Button v-if="canEdit" :label="t('person.citations.add')" icon="pi pi-book" text size="small" class="slot-add"
-          @click="citations.push(blankCitation())" />
+          @click="form.citations.push(blankCitation())" />
       </fieldset>
 
       <!-- Medien der Familie -->
       <fieldset>
         <legend>{{ t('media.title') }}</legend>
-        <MediaStrip v-model="media" size="md" />
-        <p v-if="!media.length" class="field-hint">{{ t('media.familyHint') }}</p>
+        <MediaStrip v-model="form.media" size="md" />
+        <p v-if="!form.media.length" class="field-hint">{{ t('media.familyHint') }}</p>
       </fieldset>
 
       <!-- Notizen -->
       <fieldset>
         <legend>{{ t('person.sections.notes') }}</legend>
         <div class="form-group">
-          <Textarea v-model="notes" rows="3" auto-resize :placeholder="t('families.notesPlaceholder')"
+          <Textarea v-model="form.notes" rows="3" auto-resize :placeholder="t('families.notesPlaceholder')"
             :aria-label="t('person.notes.label')" fluid />
         </div>
       </fieldset>
 
       <div class="form-actions">
         <Button v-if="canEdit" :label="t('family.deleteFamily')" icon="pi pi-trash" severity="danger" text class="form-actions-left" @click="removeFamily" />
-        <span v-if="dirty" class="dirty-hint"><i class="pi pi-circle-fill" /> {{ t('person.dirty') }}</span>
-        <Button v-if="canEdit" :label="t('families.saveNotes')" icon="pi pi-check" :disabled="!dirty" :loading="saving" @click="saveNotes" />
       </div>
       <LastChange type="family" :id="familyId" :stamp="family"
         :label="family.members.filter(m => m.role !== 'CHIL').map(m => m.display_name).join(' ⚭ ')" />

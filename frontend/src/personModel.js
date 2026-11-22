@@ -142,8 +142,9 @@ export function personFromApi(person) {
 }
 
 // ── Formular → API ─────────────────────────────────────────────
+const hasPerson = a => a.person_id !== '' && a.person_id !== null
 const associationsToApi = (list, withNotes) => list
-  .filter(a => a.person_id !== '' && a.person_id !== null)
+  .filter(hasPerson)
   .map(a => ({
     id:          a.id ?? null,
     person_id:   Number(a.person_id),
@@ -152,12 +153,12 @@ const associationsToApi = (list, withNotes) => list
     ...(withNotes ? { notes: a.notes.trim() || null } : {}),
   }))
 
-/** Daten zum Speichern (POST/PUT /persons) */
+/** Daten zum Speichern (POST/PUT /persons); Daten in GEDCOM-Form, auch wenn das Feld noch nicht verlassen wurde */
 export function personToApi(s) {
   return {
     sex:          s.sex,
     restriction:  s.restriction.join(', '),
-    citations:    s.citations.map(c => ({ ...c })),
+    citations:    filledCitations(s.citations).map(c => ({ ...c })),
     media:        s.media.map(m => ({ id: m.id, is_primary: m.is_primary })),
     associations: associationsToApi(s.associations, true),
     notes:        s.notes,
@@ -165,7 +166,7 @@ export function personToApi(s) {
     events: s.events.map(e => ({
       id:               e.id ?? null,
       event_type:       e.event_type,
-      event_date:       e.event_date,
+      event_date:       toGedcomDate(e.event_date, { period: isPeriodType(e.event_type) }),
       place_id:         e.place_id ?? null,
       event_place:      e.event_place,
       event_value:      hasValueField(e.event_type) ? e.event_value : '',
@@ -188,4 +189,43 @@ export function personToApi(s) {
       associations: associationsToApi(e.associations, false),
     })),
   }
+}
+
+// ── IDs neuer Zeilen nach dem Speichern übernehmen ─────────────
+/** Die Zeilen des Formulars, die personToApi() sendet – in derselben Reihenfolge */
+export function sentRows(s) {
+  return {
+    names:        [...s.names],
+    citations:    filledCitations(s.citations),
+    associations: s.associations.filter(hasPerson),
+    events: s.events.map(e => ({
+      row: e, citations: filledCitations(e.citations), associations: e.associations.filter(hasPerson),
+    })),
+  }
+}
+
+/**
+ * IDs aus der gespeicherten Person (Antwort des Servers) in die gesendeten Formularzeilen und in die
+ * gesendeten Daten übernehmen, damit die nächste Speicherung dieselben Zeilen aktualisiert statt neue
+ * anzulegen. false, wenn der Server Zeilen übergangen hat (dann passt die Zuordnung nicht).
+ */
+export function assignIds(rows, data, person) {
+  // Ereignisse kommen chronologisch sortiert zurück – sort_order ist die gesendete Reihenfolge
+  const events = [...(person.events ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+  const lists = [
+    [rows.names, data.names, person.names],
+    [rows.citations, data.citations, person.citations],
+    [rows.associations, data.associations, person.associations],
+    [rows.events.map(e => e.row), data.events, events],
+  ]
+  rows.events.forEach((e, i) => {
+    const saved = events[i]
+    lists.push([e.citations, data.events[i].citations, saved?.citations],
+               [e.associations, data.events[i].associations, saved?.associations])
+  })
+  if (!lists.every(([form, , saved]) => form.length === (saved ?? []).length)) return false
+  for (const [form, sent, saved] of lists) {
+    form.forEach((row, i) => { row.id = sent[i].id = saved[i].id })
+  }
+  return true
 }

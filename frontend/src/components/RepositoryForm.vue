@@ -1,72 +1,64 @@
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import InputText from 'openvue/inputtext'
 import Textarea from 'openvue/textarea'
-import Button from 'openvue/button'
 import LastChange from './LastChange.vue'
+import SaveStatus from './SaveStatus.vue'
 import { createRepository, updateRepository } from '../api/repositories.js'
-import { useNotify } from '../composables/feedback.js'
+import { useRecordAutosave } from '../composables/autosave.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 
 /** Archiv / Aufbewahrungsort (GEDCOM REPO) anlegen oder bearbeiten */
 const props = defineProps({ editRepository: { type: Object, default: null } })
-const emit  = defineEmits(['saved', 'cancel-edit', 'open-source'])
-
-const notify = useNotify()
+const emit  = defineEmits(['saved', 'open-source'])
 
 const FIELDS = ['name', 'address', 'postal_code', 'city', 'country', 'phone', 'email', 'website', 'notes']
 const blank  = () => Object.fromEntries(FIELDS.map(f => [f, '']))
 
-const form    = reactive(blank())
-const error   = ref('')
-const loading = ref(false)
+const form  = ref(blank())
+const error = ref('')
 
 const isEditing = computed(() => !!props.editRepository)
 const sources   = computed(() => props.editRepository?.sources ?? [])
 
-watch(() => props.editRepository, repo => {
-  Object.assign(form, blank(), repo ? Object.fromEntries(FIELDS.map(f => [f, repo[f] ?? ''])) : {})
-  error.value = ''
-}, { immediate: true })
+const { status, flush } = useRecordAutosave({
+  form,
+  record:  () => props.editRepository,
+  enabled: () => canEdit.value,
+  load(repo) {
+    form.value  = { ...blank(), ...(repo ? Object.fromEntries(FIELDS.map(f => [f, repo[f] ?? ''])) : {}) }
+    error.value = ''
+  },
+  payload: f => ({ ...f }),
+  validate(f, { current, isNew }) {
+    const ok = !!f.name.trim()
+    // neues Archiv: bis ein Name da ist, nur der Hinweis oben
+    if (current) error.value = ok || isNew ? '' : t('repository.nameRequired')
+    return ok
+  },
+  save:  (id, data) => id ? updateRepository(id, data) : createRepository(data),
+  saved: (repo, shown) => emit('saved', repo, shown),
+})
 
-async function submit() {
-  if (!form.name.trim()) { error.value = t('repository.nameRequired'); return }
-  loading.value = true
-  try {
-    const repo = isEditing.value
-      ? await updateRepository(props.editRepository.id, { ...form })
-      : await createRepository({ ...form })
-    notify.success(t('repository.saved', { name: repo.name }))
-    emit('saved', repo)
-    if (!isEditing.value) Object.assign(form, blank())
-  } catch {
-    notify.error(t('action.saveError'))
-  } finally {
-    loading.value = false
-  }
-}
-
-function reset() {
-  if (isEditing.value) emit('cancel-edit')
-  else { Object.assign(form, blank()); error.value = '' }
-}
-
-const websiteHref = computed(() => /^https?:\/\//i.test(form.website) ? form.website : form.website ? 'https://' + form.website : '')
+const websiteHref = computed(() => { const w = form.value.website; return /^https?:\/\//i.test(w) ? w : w ? 'https://' + w : '' })
 </script>
 
 <template>
   <div class="card">
-    <h2 class="card-title">{{ isEditing ? (canEdit ? t('repository.editTitle') : form.name) : t('repository.newTitle') }}</h2>
+    <div class="card-title-row">
+      <h2 class="card-title">{{ isEditing ? (canEdit ? t('repository.editTitle') : form.name) : t('repository.newTitle') }}</h2>
+      <SaveStatus v-if="canEdit" :status="status" :is-new="!isEditing" :incomplete="t('autosave.incompleteRepository')" @retry="flush" />
+    </div>
 
-    <form :class="{ 'read-only': !canEdit }" novalidate @submit.prevent="submit">
+    <form :class="{ 'read-only': !canEdit }" novalidate @submit.prevent="flush">
       <fieldset>
         <legend>{{ t('repository.sections.main') }}</legend>
         <div class="form-row">
           <div class="form-group span-2">
             <label for="repo_name">{{ t('repository.fields.name') }} *</label>
             <InputText id="repo_name" v-model.trim="form.name" :invalid="!!error" :placeholder="t('repository.fields.namePlaceholder')"
-              fluid @input="error = ''" />
+              fluid />
             <small v-if="error" class="error-msg">{{ error }}</small>
           </div>
         </div>
@@ -136,11 +128,6 @@ const websiteHref = computed(() => /^https?:\/\//i.test(form.website) ? form.web
         </ul>
       </fieldset>
 
-      <div class="form-actions">
-        <Button :label="isEditing ? t('action.cancel') : t('action.reset')" severity="secondary" outlined @click="reset" />
-        <Button type="submit" icon="pi pi-check" :loading="loading"
-          :label="loading ? t('action.saving') : (isEditing ? t('action.saveChanges') : t('action.save'))" />
-      </div>
     </form>
     <LastChange type="repository" :id="editRepository?.id" :label="editRepository?.name" :stamp="editRepository" />
   </div>

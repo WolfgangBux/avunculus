@@ -1,11 +1,12 @@
 <script setup>
 // Person anzeigen und bearbeiten. Die Abschnitte (Namen, Ereignisse, Quellen, verknüpfte Personen)
-// sind eigene Komponenten; hier: Kopf, Laden, Prüfen, Speichern, Wechsel zu Verwandten.
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+// sind eigene Komponenten; hier: Kopf, Laden, Prüfen, automatisches Speichern, Wechsel zu Verwandten.
+import { ref, reactive, computed } from 'vue'
 import MultiSelect  from 'openvue/multiselect'
 import Textarea     from 'openvue/textarea'
 import Button       from 'openvue/button'
 import LastChange from './LastChange.vue'
+import SaveStatus from './SaveStatus.vue'
 import SexSelect from './SexSelect.vue'
 import PersonNames        from './PersonNames.vue'
 import PersonEvents       from './PersonEvents.vue'
@@ -16,13 +17,14 @@ import PersonPlacesMap    from './PersonPlacesMap.vue'
 import MediaStrip         from './MediaStrip.vue'
 import { createPerson, updatePerson } from '../api/persons.js'
 import { mediaThumbUrl } from '../api/media.js'
-import { isValidGedcomDate, extractYear } from '../gedcom.js'
+import { isValidGedcomDate, extractYear, toGedcomDate } from '../gedcom.js'
 import { t } from '../i18n/index.js'
 import { displayDate } from '../format.js'
 import { canEdit, isAdmin } from '../auth.js'
-import { useNotify, useAsk } from '../composables/feedback.js'
+import { useAsk } from '../composables/feedback.js'
+import { useRecordAutosave } from '../composables/autosave.js'
 import {
-  RESTRICTION_VALUES, personFromApi, personToApi, normalizeEventDate, fullName, listName,
+  RESTRICTION_VALUES, personFromApi, personToApi, sentRows, assignIds, isPeriodType, fullName,
 } from '../personModel.js'
 
 const props = defineProps({
@@ -30,14 +32,12 @@ const props = defineProps({
   startPersonId: { type: Number, default: null },   // Startperson des Baums
   refresh:       Number,   // ändert sich, wenn Beziehungen anderswo geändert wurden
 })
-const emit = defineEmits(['person-saved', 'cancel-edit', 'edit-person', 'edit-family', 'relations', 'relatives-tree', 'relationship', 'set-start', 'open-place'])
+const emit = defineEmits(['person-saved', 'edit-person', 'edit-family', 'relations', 'relatives-tree', 'relationship', 'set-start', 'open-place'])
 
-const notify = useNotify()
 const ask    = useAsk()
 
 // ── Zustand ───────────────────────────────────────────────
 const form    = ref(personFromApi(null))   // sex, restriction, notes, names, events, citations, associations, media
-const loading = ref(false)
 const isEditing = computed(() => props.editPerson !== null)
 const personId  = computed(() => props.editPerson ? Number(props.editPerson.id) : null)
 
@@ -58,26 +58,6 @@ function clearErrors() {
   nameErrors.value  = []
   eventErrors.value = []
 }
-
-// Ungespeicherte Änderungen erkennen
-const snapshot     = ref('')
-const takeSnapshot = () => { snapshot.value = JSON.stringify(form.value) }
-const dirty        = computed(() => JSON.stringify(form.value) !== snapshot.value)
-
-/** Person ins Formular laden (null = leeres Formular für eine neue Person) */
-function load(person) {
-  form.value         = personFromApi(person)
-  openName.value     = person ? null : 0
-  openEvent.value    = person ? null : 0
-  expanded.value     = {}
-  assoExpanded.value = {}
-  formKey.value++
-  clearErrors()
-  takeSnapshot()
-}
-// auch beim (Wieder-)Aufbau, z. B. nach Tab-Wechsel
-watch(() => props.editPerson, load, { immediate: true })
-onMounted(takeSnapshot)
 
 // ── Kopf ──────────────────────────────────────────────────
 const restrictionOptions = computed(() => RESTRICTION_VALUES.map(v => ({ value: v, label: t('person.restriction.' + v) })))
@@ -100,74 +80,74 @@ function toggleAll() {
   assoExpanded.value = Object.fromEntries(form.value.associations.map((_, i) => [i, open]))
 }
 
-// ── Prüfen und Speichern ──────────────────────────────────
-function validate() {
+// ── Prüfen ────────────────────────────────────────────────
+/** Formularstand prüfen, ohne ihn zu ändern: { ok, missing, sex, names, events } */
+function check(f) {
+  const result = { ok: true, missing: false, sex: null, names: [], events: [] }
+  const dates  = f.events.map(e => toGedcomDate(e.event_date, { period: isPeriodType(e.event_type) }))
+
+  if (!f.sex) { result.sex = t('sex.error'); result.missing = true }
+  const primary = f.names[0]
+  if (!primary?.given_name.trim() && !primary?.surname.trim()) {
+    const msg = t('person.nameFields.primaryRequired')
+    result.names[0] = { given_name: msg, surname: msg }
+    result.missing = true
+  }
+
+  result.events = dates.map(d => d && !isValidGedcomDate(d) ? { event_date: t('person.eventFields.dateError') } : {})
+
+  const bi = f.events.findIndex(e => e.event_type === 'BIRT')
+  const di = f.events.findIndex(e => e.event_type === 'DEAT')
+  if (bi >= 0 && di >= 0) {
+    const by = extractYear(dates[bi])
+    const dy = extractYear(dates[di])
+    if (by && dy && by > dy) result.events[di] = { ...result.events[di], event_date: t('person.eventFields.yearOrderError') }
+  }
+
+  result.ok = !result.missing && !result.events.some(e => e.event_date)
+  return result
+}
+
+/** Prüfergebnis anzeigen; bei einer neuen Person fehlen Geschlecht und Name anfangs ohnehin (Hinweis statt Fehler) */
+function showErrors(res, isNew) {
   clearErrors()
-  let ok = true
-  const { names, events } = form.value
-
-  if (!form.value.sex) { errors.sex = t('sex.error'); ok = false }
-
-  nameErrors.value = names.map((name, i) => {
-    if (i > 0 || name.given_name.trim() || name.surname.trim()) return {}
-    ok = false
-    return { given_name: t('person.nameFields.primaryRequired'), surname: t('person.nameFields.primaryRequired') }
-  })
-
-  eventErrors.value = events.map(evt => {
-    const val = evt.event_date.trim()
-    if (!val || isValidGedcomDate(val)) return {}
-    ok = false
-    return { event_date: t('person.eventFields.dateError') }
-  })
-
-  const birt = events.find(e => e.event_type === 'BIRT')
-  const deat = events.find(e => e.event_type === 'DEAT')
-  if (birt && deat) {
-    const by = extractYear(birt.event_date)
-    const dy = extractYear(deat.event_date)
-    if (by && dy && by > dy) {
-      const di = events.indexOf(deat)
-      eventErrors.value[di] = { ...eventErrors.value[di], event_date: t('person.eventFields.yearOrderError') }
-      ok = false
-    }
-  }
-
-  // Fehlerhaftes gleich zum Bearbeiten aufklappen
-  if (nameErrors.value[0]?.given_name) openName.value = 0
-  const firstBad = eventErrors.value.findIndex(e => e?.event_date)
-  if (firstBad >= 0) openEvent.value = firstBad
-
-  return ok
+  if (res.sex && !isNew) errors.sex = res.sex
+  nameErrors.value  = isNew ? [] : res.names
+  eventErrors.value = res.events
 }
 
-async function submit() {
-  form.value.events.forEach(normalizeEventDate)
-  if (!validate()) return
-  loading.value = true
-  try {
-    const person = isEditing.value
-      ? await updatePerson(props.editPerson.id, personToApi(form.value))
-      : await createPerson(personToApi(form.value))
-    notify.success(t('person.saved', { name: listName(person) }))
-    emit('person-saved', person)
-    if (!isEditing.value) load(null)   // nächste neue Person
-    takeSnapshot()
-  } catch {
-    notify.error(t('action.saveError'))
-  } finally {
-    loading.value = false
-  }
+// ── Automatisch speichern ─────────────────────────────────
+/** Person ins Formular laden (null = leeres Formular für eine neue Person) */
+function load(person) {
+  form.value         = personFromApi(person)
+  openName.value     = person ? null : 0
+  openEvent.value    = person ? null : 0
+  expanded.value     = {}
+  assoExpanded.value = {}
+  formKey.value++
+  clearErrors()
 }
 
-function reset() {
-  if (isEditing.value) emit('cancel-edit')
-  else load(null)
-}
+const { status, flush } = useRecordAutosave({
+  form, load,
+  record:  () => props.editPerson,
+  enabled: () => canEdit.value,
+  payload: personToApi,
+  validate(f, { current, isNew }) {
+    const res = check(f)
+    if (current) showErrors(res, isNew)
+    return res.ok
+  },
+  save:   (id, data) => id ? updatePerson(id, data) : createPerson(data),
+  before: sentRows,
+  adopt:  assignIds,   // neue Namen, Ereignisse, Quellenangaben bekommen ihre IDs
+  saved:  (person, shown) => emit('person-saved', person, shown),
+})
 
-// ── Wechsel zu Verwandten – bei ungespeicherten Änderungen erst nachfragen ──
+// ── Wechsel zu Verwandten – erst speichern; geht das nicht, nachfragen ──
 async function leaveTo(event, payload) {
-  if (dirty.value && !(await ask(t('person.discardConfirm'), { acceptLabel: t('person.discard') }))) return
+  const result = await flush()
+  if (result !== 'saved' && !(await ask(t('person.discardConfirm'), { acceptLabel: t('person.discard') }))) return
   emit(event, payload)
 }
 const goPerson = id => leaveTo('edit-person', id)
@@ -179,7 +159,7 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
 
 <template>
 <div class="card person-form">
-  <form :class="{ 'read-only': !canEdit }" @submit.prevent="submit" novalidate>
+  <form :class="{ 'read-only': !canEdit }" @submit.prevent="flush" novalidate>
 
     <!-- ── Kopf: wer wird bearbeitet? ────────────────────── -->
     <div class="person-header">
@@ -188,7 +168,10 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
         <svg v-else viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="12" r="6"/><path d="M4 32c0-7 5.4-11 12-11s12 4 12 11z"/></svg>
       </div>
       <div class="person-header-text">
-        <div v-if="canEdit" class="person-header-kicker">{{ isEditing ? t('person.titleEdit') : t('person.titleNew') }}</div>
+        <div v-if="canEdit" class="person-header-kicker">
+          {{ isEditing ? t('person.titleEdit') : t('person.titleNew') }}
+          <SaveStatus :status="status" :is-new="!isEditing" :incomplete="t('autosave.incompletePerson')" @retry="flush" />
+        </div>
         <h2 class="person-header-name">{{ headerName }}</h2>
         <div v-if="headerLife" class="person-header-life">{{ headerLife }}</div>
       </div>
@@ -253,13 +236,6 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
       @open-place="goPlace" />
 
     <LastChange type="person" :id="editPerson?.id" :label="headerName" :stamp="editPerson" />
-
-    <div v-if="canEdit" class="form-actions form-actions-sticky">
-      <span v-if="dirty" class="dirty-hint"><i class="pi pi-circle-fill" /> {{ t('person.dirty') }}</span>
-      <Button :label="isEditing ? t('action.cancel') : t('action.reset')" severity="secondary" outlined @click="reset" />
-      <Button type="submit" icon="pi pi-check" :loading="loading"
-        :label="loading ? t('action.saving') : (isEditing ? t('action.saveChanges') : t('action.save'))" />
-    </div>
 
   </form>
 </div>

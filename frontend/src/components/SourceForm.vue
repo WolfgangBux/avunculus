@@ -1,11 +1,12 @@
 <script>
-import { ref, reactive, computed, watch, onMounted, defineComponent } from 'vue'
+import { ref, reactive, computed, onMounted, defineComponent } from 'vue'
 import { createSource, updateSource } from '../api/sources.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 import { currentTreeId } from '../trees.js'
 import { displayDate, nameLabel } from '../format.js'
-import { useNotify } from '../composables/feedback.js'
+import { useRecordAutosave } from '../composables/autosave.js'
+import SaveStatus from './SaveStatus.vue'
 import InputText from 'openvue/inputtext'
 import Textarea  from 'openvue/textarea'
 import Button    from 'openvue/button'
@@ -25,15 +26,13 @@ const blank = () => ({
 })
 
 export default defineComponent({
-  components: { InputText, Textarea, Button, Select, MediaStrip, LastChange },
+  components: { InputText, Textarea, Button, Select, MediaStrip, LastChange, SaveStatus },
   props: { editSource: { type: Object, default: null } },
-  emits: ['source-saved', 'cancel-edit', 'open-repository'],
+  emits: ['source-saved', 'open-repository'],
 
   setup(props, { emit }) {
-    const notify = useNotify()
-    const form       = reactive(blank())
-    const errors     = reactive({})
-    const loading    = ref(false)
+    const form   = ref(blank())
+    const errors = reactive({})
 
     const isEditing = () => props.editSource !== null
 
@@ -45,50 +44,9 @@ export default defineComponent({
 
     function clearErrors() { Object.keys(errors).forEach(k => delete errors[k]) }
 
-    function validate() {
-      clearErrors()
-      let ok = true
-      if (!form.title.trim()) { errors.title = t('source.fields.titleError'); ok = false }
-      return ok
-    }
-
-    async function submit() {
-      if (!validate()) return
-      loading.value  = true
-      try {
-        const source = isEditing()
-          ? await updateSource(props.editSource.id, { ...form })
-          : await createSource({ ...form })
-        notify.success(t('source.saved', { title: source.title }))
-        emit('source-saved', source)
-        if (!isEditing()) {
-          Object.assign(form, blank())
-          clearErrors()
-        }
-      } catch {
-        notify.error(t('action.saveError'))
-      } finally {
-        loading.value = false
-      }
-    }
-
-    function reset() {
-      if (isEditing()) {
-        emit('cancel-edit')
-      } else {
-        Object.assign(form, blank())
-        clearErrors()
-      }
-    }
-
-    watch(() => props.editSource, (source) => {
-      // Bearbeiten beendet bzw. „Neue Quelle“ → leeres Formular
-      if (!source) {
-        Object.assign(form, blank())
-        clearErrors()
-        return
-      }
-      Object.assign(form, {
+    // auch beim (Wieder-)Aufbau, z. B. nach Tab-Wechsel; null = neue Quelle (leeres Formular)
+    function load(source) {
+      form.value = !source ? blank() : {
         title:        source.title        ?? '',
         abbreviation: source.abbreviation ?? '',
         author:       source.author       ?? '',
@@ -99,9 +57,26 @@ export default defineComponent({
         source_text:  source.source_text  ?? '',
         notes:        source.notes        ?? '',
         media:        (source.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type })),
-      })
+      }
       clearErrors()
-    }, { immediate: true })   // auch beim (Wieder-)Aufbau, z. B. nach Tab-Wechsel
+    }
+
+    const { status, flush } = useRecordAutosave({
+      form, load,
+      record:  () => props.editSource,
+      enabled: () => canEdit.value,
+      payload: f => ({ ...f, media: f.media.map(m => ({ ...m })) }),
+      validate(f, { current, isNew }) {
+        const ok = !!f.title.trim()
+        if (current) {
+          clearErrors()
+          if (!ok && !isNew) errors.title = t('source.fields.titleError')
+        }
+        return ok
+      },
+      save:  (id, data) => id ? updateSource(id, data) : createSource(data),
+      saved: (source, shown) => emit('source-saved', source, shown),
+    })
 
     // ── Ereignisse, die diese Quelle zitieren ─────────────────
     const events     = computed(() => props.editSource?.events ?? [])
@@ -116,7 +91,7 @@ export default defineComponent({
     const eventHref = e => `${location.pathname}#/${currentTreeId.value}/${e.kind === 'family' ? 'families' : 'persons'}/${e.owner_id}`
     const fmt = n => n.toLocaleString()
 
-    return { canEdit, t, form, errors, loading, isEditing, submit, reset, repositoryOptions, mediaOptions, emit,
+    return { canEdit, t, form, errors, status, flush, isEditing, repositoryOptions, mediaOptions, emit,
              events, eventTotal, eventLabel, ownersLabel, eventHref, displayDate, fmt }
   },
 })
@@ -124,9 +99,12 @@ export default defineComponent({
 
 <template>
 <div class="card">
-  <h2 class="card-title">{{ isEditing() ? (canEdit ? t('source.titleEdit') : form.title) : t('source.titleNew') }}</h2>
+  <div class="card-title-row">
+    <h2 class="card-title">{{ isEditing() ? (canEdit ? t('source.titleEdit') : form.title) : t('source.titleNew') }}</h2>
+    <SaveStatus v-if="canEdit" :status="status" :is-new="!isEditing()" :incomplete="t('autosave.incompleteSource')" @retry="flush" />
+  </div>
 
-  <form :class="{ 'read-only': !canEdit }" @submit.prevent="submit" novalidate>
+  <form :class="{ 'read-only': !canEdit }" @submit.prevent="flush" novalidate>
 
     <fieldset>
       <legend>{{ t('source.sections.main') }}</legend>
@@ -200,12 +178,6 @@ export default defineComponent({
           :placeholder="t('source.fields.notesPlaceholder')" fluid />
       </div>
     </fieldset>
-
-    <div class="form-actions">
-      <Button :label="isEditing() ? t('action.cancel') : t('action.reset')" severity="secondary" outlined @click="reset" />
-      <Button type="submit" icon="pi pi-check" :loading="loading"
-        :label="loading ? t('action.saving') : (isEditing() ? t('action.saveChanges') : t('action.save'))" />
-    </div>
 
   </form>
 

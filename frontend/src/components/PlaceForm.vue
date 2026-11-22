@@ -1,14 +1,16 @@
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import InputText from 'openvue/inputtext'
 import Textarea from 'openvue/textarea'
 import Select from 'openvue/select'
 import Button from 'openvue/button'
 import LastChange from './LastChange.vue'
+import SaveStatus from './SaveStatus.vue'
 import PlacePicker from './PlacePicker.vue'
 import WikidataSearchDialog from './WikidataSearchDialog.vue'
 import { updatePlace, createPlace, mergePlace, deletePlace, fetchWikidataPlace } from '../api/places.js'
 import { useNotify, useAsk } from '../composables/feedback.js'
+import { useRecordAutosave } from '../composables/autosave.js'
 import { displayDate, nameLabel } from '../format.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
@@ -25,34 +27,32 @@ const FIELDS = ['name', 'place_type', 'latitude', 'longitude', 'gov_id', 'wikida
 const TYPES  = ['Staat', 'Land', 'Bundesland', 'Provinz', 'Regierungsbezirk', 'Bezirk', 'Landkreis', 'Amt',
                 'Gemeinde', 'Stadt', 'Markt', 'Ort', 'Dorf', 'Weiler', 'Einöde', 'Ortsteil', 'Pfarrei', 'Kirche', 'Friedhof']
 
-const form    = reactive({})
-const names   = ref([])
-const errors  = ref({})
-const saving  = ref(false)
+// Formular: FIELDS, names (andere Namen), parent_id und parent_name (Oberort, Name nur zur Anzeige)
+const form     = ref({ ...Object.fromEntries(FIELDS.map(k => [k, ''])), names: [], parent_id: null, parent_name: '' })
+const errors   = ref({})
 const fetching = ref(false)
 
 function fill(p) {
-  for (const f of FIELDS) form[f] = p[f] ?? ''
+  const f = Object.fromEntries(FIELDS.map(k => [k, p[k] ?? '']))
   // „48.728300“ → „48.7283“
-  for (const f of ['latitude', 'longitude']) if (form[f] !== '') form[f] = String(Number(form[f]))
-  names.value  = (p.names ?? []).map(n => ({ name: n.name, language: n.language ?? '', date_period: n.date_period ?? '' }))
-  const parent = p.path?.length > 1 ? p.path[p.path.length - 2] : null
-  parentId.value   = parent?.id ?? null
-  parentName.value = p.full_name?.includes(', ') ? p.full_name.slice(p.full_name.indexOf(', ') + 2) : ''
+  for (const k of ['latitude', 'longitude']) if (f[k] !== '') f[k] = String(Number(f[k]))
+  f.names = (p.names ?? []).map(n => ({ name: n.name, language: n.language ?? '', date_period: n.date_period ?? '' }))
+  const parent  = p.path?.length > 1 ? p.path[p.path.length - 2] : null
+  f.parent_id   = parent?.id ?? null
+  f.parent_name = p.full_name?.includes(', ') ? p.full_name.slice(p.full_name.indexOf(', ') + 2) : ''
+  form.value = f
   errors.value = {}
   newChild.value = ''
   mergeId.value = null
   mergeName.value = ''
 }
-const parentId   = ref(null)
-const parentName = ref('')
 
-const typeOptions = computed(() => [...new Set([...(form.place_type ? [form.place_type] : []), ...TYPES])])
+const typeOptions = computed(() => [...new Set([...(form.value.place_type ? [form.value.place_type] : []), ...TYPES])])
 
 // ── Koordinaten ───────────────────────────────────────────
 const num = v => Number(String(v).trim().replace(',', '.'))
-const hasCoords = computed(() => form.latitude !== '' && form.longitude !== ''
-  && Number.isFinite(num(form.latitude)) && Number.isFinite(num(form.longitude)))
+const coordOk   = (v, limit) => String(v).trim() !== '' && Number.isFinite(num(v)) && Math.abs(num(v)) <= limit
+const hasCoords = computed(() => coordOk(form.value.latitude, 90) && coordOk(form.value.longitude, 180))
 
 /** „48.7283, 13.6011“ (z. B. aus einer Karte kopiert) auf beide Felder verteilen */
 function onCoordPaste(e) {
@@ -60,25 +60,26 @@ function onCoordPaste(e) {
   const m = text.match(/(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)/)
   if (!m) return
   e.preventDefault()
-  form.latitude  = m[1]
-  form.longitude = m[2]
-  errors.value = {}
+  form.value.latitude  = m[1]
+  form.value.longitude = m[2]
 }
 
 const mapUrl = computed(() => {
   if (!hasCoords.value) return ''
-  const lat = num(form.latitude), lon = num(form.longitude)
+  const lat = num(form.value.latitude), lon = num(form.value.longitude)
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=14/${lat}/${lon}`
 })
 
 // ── Verknüpfungen ─────────────────────────────────────────
 // Kennung oder eingefügter Link → Kennung (der Server prüft genauso)
-const govId = computed(() => {
-  const v = form.gov_id.trim()
+function govOf(raw) {
+  const v = raw.trim()
   const m = v.match(/gov\.genealogy\.net\/.*?(?:item\/show\/|id=)([A-Za-z0-9_-]+)/i)
   return m ? m[1] : (/^[A-Za-z0-9_-]{2,60}$/.test(v) ? v : '')
-})
-const wikidataId = computed(() => form.wikidata_id.trim().match(/(?:^|[/=:])(Q\d{1,12})\b/i)?.[1]?.toUpperCase() ?? '')
+}
+const wikidataOf = raw => raw.trim().match(/(?:^|[/=:])(Q\d{1,12})\b/i)?.[1]?.toUpperCase() ?? ''
+const govId      = computed(() => govOf(form.value.gov_id))
+const wikidataId = computed(() => wikidataOf(form.value.wikidata_id))
 
 const govUrl      = computed(() => govId.value ? `https://gov.genealogy.net/item/show/${govId.value}` : '')
 const wikidataUrl = computed(() => wikidataId.value ? `https://www.wikidata.org/wiki/${wikidataId.value}` : '')
@@ -86,12 +87,12 @@ const showWdSearch = ref(false)
 const wdContext    = computed(() => (props.place.path ?? []).slice(0, -1).map(p => p.name).reverse())
 
 function normalizeLinks() {
-  if (govId.value) form.gov_id = govId.value
-  if (wikidataId.value) form.wikidata_id = wikidataId.value
+  if (govId.value) form.value.gov_id = govId.value
+  if (wikidataId.value) form.value.wikidata_id = wikidataId.value
 }
 
 /**
- * Angaben eines Wikidata-Objekts ins Formular übernehmen (gespeichert wird erst mit „Speichern“):
+ * Angaben eines Wikidata-Objekts ins Formular übernehmen (wird dann automatisch gespeichert):
  * Kennung, Koordinaten und GOV-Kennung werden ersetzt, die Art nur ergänzt, Bezeichnungen in
  * anderen Sprachen kommen als andere Namen hinzu, soweit sie vom Namen abweichen und neu sind.
  */
@@ -101,19 +102,20 @@ async function applyWikidata(qid) {
   try {
     const wd = await fetchWikidataPlace(qid)
     const taken = [t('place.fields.wikidata')]
-    form.wikidata_id = wd.id
+    const f = form.value
+    f.wikidata_id = wd.id
     if (wd.latitude != null) {
-      form.latitude  = String(+wd.latitude.toFixed(6))
-      form.longitude = String(+wd.longitude.toFixed(6))
+      f.latitude  = String(+wd.latitude.toFixed(6))
+      f.longitude = String(+wd.longitude.toFixed(6))
       taken.push(t('place.fields.coordinates'))
     }
-    if (wd.gov_id && wd.gov_id !== govId.value) { form.gov_id = wd.gov_id; taken.push('GOV') }
-    if (wd.type && !form.place_type) {
+    if (wd.gov_id && wd.gov_id !== govId.value) { f.gov_id = wd.gov_id; taken.push('GOV') }
+    if (wd.type && !f.place_type) {
       // „Stadt in Deutschland“ → „Stadt“, „Ortsteil von …“ → „Ortsteil“
-      form.place_type = wd.type.replace(/\s+(in|im|von|der|des)\s.*$/i, '').slice(0, 60)
+      f.place_type = wd.type.replace(/\s+(in|im|von|der|des)\s.*$/i, '').slice(0, 60)
       taken.push(t('place.fields.type'))
     }
-    const known = new Set([form.name, ...names.value.map(n => n.name)].map(n => n.trim().toLowerCase()))
+    const known = new Set([f.name, ...f.names.map(n => n.name)].map(n => n.trim().toLowerCase()))
     const added = new Map()   // Name → Sprachen
     for (const l of wd.labels) {
       const key = l.name.trim().toLowerCase()
@@ -121,9 +123,8 @@ async function applyWikidata(qid) {
       if (!added.has(key)) added.set(key, { name: l.name.trim(), langs: [] })
       added.get(key).langs.push(l.language)
     }
-    for (const a of added.values()) names.value.push({ name: a.name, language: a.langs.join(', ').slice(0, 40), date_period: '' })
+    for (const a of added.values()) f.names.push({ name: a.name, language: a.langs.join(', ').slice(0, 40), date_period: '' })
     if (added.size) taken.push(t('place.wikidata.namesTaken', { n: added.size }))
-    errors.value = {}
     notify.success(t('place.wikidata.taken', { what: taken.join(', '), label: wd.label }))
   } catch {
     notify.error(t('place.wikidata.error'))
@@ -133,24 +134,21 @@ async function applyWikidata(qid) {
 }
 
 // ── Alternative Namen ─────────────────────────────────────
-const addName    = () => names.value.push({ name: '', language: '', date_period: '' })
-const removeName = i => names.value.splice(i, 1)
+const addName    = () => form.value.names.push({ name: '', language: '', date_period: '' })
+const removeName = i => form.value.names.splice(i, 1)
 
-// ── Speichern ─────────────────────────────────────────────
-async function submit() {
-  normalizeLinks()
-  if (!form.name.trim()) { errors.value = { name: 'required' }; return }
-  saving.value = true
-  try {
-    const saved = await updatePlace(props.place.id, { ...form, parent_id: parentId.value, names: names.value })
-    notify.success(t('place.saved', { name: saved.name }))
-    emit('saved', saved)
-  } catch (e) {
-    if (e?.errors) errors.value = e.errors
-    else notify.error(e?.error ?? t('action.saveError'))
-  } finally {
-    saving.value = false
-  }
+// ── Automatisch speichern ─────────────────────────────────
+/** Fehler wie der Server sie meldet: { feld: 'invalid' | 'missing' | 'required' } */
+function checkPlace(f) {
+  const e = {}
+  if (!f.name.trim()) e.name = 'required'
+  const lat = String(f.latitude).trim(), lon = String(f.longitude).trim()
+  if (lat && !coordOk(lat, 90))   e.latitude  = 'invalid'
+  if (lon && !coordOk(lon, 180))  e.longitude = 'invalid'
+  if (!e.latitude && !e.longitude && !lat !== !lon) e[lat ? 'longitude' : 'latitude'] = 'missing'
+  if (f.gov_id.trim() && !govOf(f.gov_id))                e.gov_id      = 'invalid'
+  if (f.wikidata_id.trim() && !wikidataOf(f.wikidata_id)) e.wikidata_id = 'invalid'
+  return e
 }
 
 // ── Unterort anlegen, zusammenführen, löschen ─────────────
@@ -172,6 +170,7 @@ const mergeName = ref('')
 async function merge() {
   if (!mergeId.value) return
   const n = props.place.event_total + (props.place.other_total ?? 0)
+  await flush()   // ausstehende Änderungen erst speichern, sie gehen sonst mit dem Ort verloren
   if (!(await ask(t('place.mergeConfirm', { name: props.place.full_name, target: mergeName.value, n: fmt(n) }),
                   { acceptLabel: t('place.merge'), danger: false }))) return
   try {
@@ -186,6 +185,7 @@ async function merge() {
 const deletable = computed(() => !props.place.event_total && !props.place.other_total && !props.place.children.length)
 async function remove() {
   if (!(await ask(t('place.deleteConfirm', { name: props.place.full_name })))) return
+  discard()
   try {
     await deletePlace(props.place.id)
     notify.success(t('place.deleted', { name: props.place.name }))
@@ -214,7 +214,33 @@ const eventHref = e => `${location.pathname}#/${currentTreeId.value}/${e.kind ==
 const fmt = n => n.toLocaleString()
 
 // erst hier: fill() braucht alle obigen Zustände
-watch(() => props.place, fill, { immediate: true })
+const { status, flush, discard } = useRecordAutosave({
+  form,
+  record:  () => props.place,
+  load:    fill,
+  enabled: () => canEdit.value,
+  payload: f => ({
+    ...Object.fromEntries(FIELDS.map(k => [k, f[k]])),
+    gov_id:      govOf(f.gov_id) || f.gov_id,
+    wikidata_id: wikidataOf(f.wikidata_id) || f.wikidata_id,
+    parent_id:   f.parent_id,
+    names:       f.names.map(n => ({ ...n })),
+  }),
+  validate(f, { current }) {
+    const e = checkPlace(f)
+    if (current) errors.value = e
+    return !Object.keys(e).length
+  },
+  save:  (id, data) => updatePlace(id, data),
+  saved: (place, shown) => emit('saved', place, shown),
+  onError(e, current) {
+    if (!current) return false
+    if (e?.errors) { errors.value = e.errors; return true }
+    if (e?.error)  { errors.value = { conflict: e.error }; return true }   // z. B. gleichnamiger Ort unter demselben Oberort
+    return false
+  },
+})
+
 </script>
 
 <template>
@@ -227,16 +253,20 @@ watch(() => props.place, fill, { immediate: true })
       </template>
     </nav>
     <div class="place-head">
-      <h2 class="card-title">{{ place.name }}</h2>
+      <div class="card-title-row">
+        <h2 class="card-title">{{ place.name }}</h2>
+        <SaveStatus v-if="canEdit" :status="status" @retry="flush" />
+      </div>
       <Button v-if="canEdit && (deletable)" icon="pi pi-trash" :label="t('action.delete')" size="small" severity="danger" text @click="remove" />
     </div>
 
-    <form :class="{ 'read-only': !canEdit }" novalidate @submit.prevent="submit">
+    <form :class="{ 'read-only': !canEdit }" novalidate @submit.prevent="flush">
       <div class="place-grid">
         <div class="form-group">
           <label for="place_name">{{ t('place.fields.name') }} *</label>
-          <InputText id="place_name" v-model.trim="form.name" :invalid="!!errors.name" fluid @input="errors = {}" />
+          <InputText id="place_name" v-model.trim="form.name" :invalid="!!errors.name" fluid />
           <small v-if="errors.name" class="error-msg">{{ t('place.errors.name') }}</small>
+          <small v-if="errors.conflict" class="error-msg">{{ errors.conflict }}</small>
         </div>
         <div class="form-group">
           <label for="place_type">{{ t('place.fields.type') }}</label>
@@ -250,26 +280,26 @@ watch(() => props.place, fill, { immediate: true })
               <i class="pi pi-map" /> {{ t('place.map') }}</a>
           </label>
           <InputText id="place_lat" v-model.trim="form.latitude" inputmode="decimal" placeholder="48.7283"
-            :title="t('place.coordHint')" :invalid="!!errors.latitude" fluid @paste="onCoordPaste" @input="errors = {}" />
+            :title="t('place.coordHint')" :invalid="!!errors.latitude" fluid @paste="onCoordPaste" />
           <small v-if="errors.latitude" class="error-msg">{{ errorText('latitude') }}</small>
         </div>
         <div class="form-group">
           <label for="place_lon" :title="t('place.coordHint')">{{ t('place.fields.longitude') }}</label>
           <InputText id="place_lon" v-model.trim="form.longitude" inputmode="decimal" placeholder="13.6011"
-            :title="t('place.coordHint')" :invalid="!!errors.longitude" fluid @paste="onCoordPaste" @input="errors = {}" />
+            :title="t('place.coordHint')" :invalid="!!errors.longitude" fluid @paste="onCoordPaste" />
           <small v-if="errors.longitude" class="error-msg">{{ errorText('longitude') }}</small>
         </div>
 
         <div class="form-group span-half">
           <label for="place_parent" :title="t('place.parentHint')">{{ t('place.fields.parent') }}</label>
-          <PlacePicker v-model:place-id="parentId" v-model:place-name="parentName" input-id="place_parent"
+          <PlacePicker v-model:place-id="form.parent_id" v-model:place-name="form.parent_name" input-id="place_parent"
             :allow-new="false" :exclude-ids="[place.id]" :placeholder="t('place.fields.parentNone')" />
         </div>
         <div class="form-group span-half">
           <label for="place_gov">{{ t('place.fields.gov') }}</label>
           <div class="repo-select-row">
             <InputText id="place_gov" v-model.trim="form.gov_id" :invalid="!!errors.gov_id" :title="t('place.linkHint')"
-              :placeholder="t('place.fields.govPlaceholder')" fluid @blur="normalizeLinks" @input="errors = {}" />
+              :placeholder="t('place.fields.govPlaceholder')" fluid @blur="normalizeLinks" />
             <a v-if="govUrl" :href="govUrl" target="_blank" rel="noopener" class="repo-link"
               :title="t('place.openGov')"><i class="pi pi-external-link" /></a>
           </div>
@@ -280,7 +310,7 @@ watch(() => props.place, fill, { immediate: true })
           <label for="place_wd">{{ t('place.fields.wikidata') }}</label>
           <div class="repo-select-row">
             <InputText id="place_wd" v-model.trim="form.wikidata_id" :invalid="!!errors.wikidata_id" :title="t('place.linkHint')"
-              :placeholder="t('place.fields.wikidataPlaceholder')" fluid @blur="normalizeLinks" @input="errors = {}" />
+              :placeholder="t('place.fields.wikidataPlaceholder')" fluid @blur="normalizeLinks" />
             <a v-if="wikidataUrl" :href="wikidataUrl" target="_blank" rel="noopener" class="repo-link"
               :title="t('place.openWikidata')"><i class="pi pi-external-link" /></a>
             <Button v-if="canEdit" type="button" icon="pi pi-search" size="small" severity="secondary" outlined
@@ -298,7 +328,7 @@ watch(() => props.place, fill, { immediate: true })
           {{ t('place.sections.names') }}
           <Button v-if="canEdit" type="button" :label="t('place.names.add')" icon="pi pi-plus" size="small" text class="legend-btn" @click="addName" />
         </legend>
-        <div v-for="(n, i) in names" :key="i" class="place-name-row">
+        <div v-for="(n, i) in form.names" :key="i" class="place-name-row">
           <InputText v-model="n.name" size="small" :placeholder="t('place.names.name')" :aria-label="t('place.names.name')" />
           <InputText v-model="n.language" size="small" :placeholder="t('place.names.language')" :aria-label="t('place.names.language')" />
           <InputText v-model="n.date_period" size="small" :placeholder="t('place.names.period')" :aria-label="t('place.names.period')" />
@@ -312,14 +342,9 @@ watch(() => props.place, fill, { immediate: true })
         <Textarea v-model="form.notes" rows="1" auto-resize :aria-label="t('person.notes.label')" fluid />
       </fieldset>
 
-      <div v-if="canEdit" class="form-actions place-actions">
-        <Button :label="t('action.reset')" severity="secondary" outlined @click="fill(place)" />
-        <Button type="submit" icon="pi pi-check" :loading="saving"
-          :label="saving ? t('action.saving') : t('action.saveChanges')" />
-      </div>
     </form>
 
-    <!-- Ab hier: Aktionen und Übersichten, die nicht über „Speichern“ laufen -->
+    <!-- Ab hier: Aktionen und Übersichten, die eigene Schaltflächen haben -->
     <fieldset class="place-section">
       <legend>{{ t('place.children', { n: place.children.length }) }}</legend>
       <div v-if="canEdit" class="place-add-row">

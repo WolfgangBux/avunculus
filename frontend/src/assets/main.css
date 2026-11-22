@@ -1135,6 +1135,20 @@ legend {
 .person-header-kicker {
   font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--color-muted);
 }
+.card-title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .8rem; margin-bottom: .9rem; }
+.card-title-row .card-title { margin-bottom: 0; }
+.card-title-row .save-status { margin-left: 0; font-size: .78rem; color: var(--color-muted); }
+.save-status {
+  margin-left: .6rem; display: inline-flex; align-items: center; gap: .3rem;
+  font-weight: 500; text-transform: none; letter-spacing: 0;
+}
+.save-status .pi { font-size: .7rem; }
+.save-status-saved .pi { color: var(--color-success); }
+.save-status.save-status-invalid, .save-status.save-status-error { color: var(--color-error); }
+.save-retry {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--color-primary-dark);
+  text-decoration: underline; cursor: pointer;
+}
 .person-header-name { font-size: 1.35rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
 .person-header-life { font-size: .85rem; color: var(--color-muted); font-variant-numeric: tabular-nums; margin-top: .1rem; }
 .person-header-sex { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; }
@@ -1239,19 +1253,6 @@ legend {
 .event-editor-actions .spacer { flex: 1; }
 
 /* Speichern-Leiste bleibt beim Scrollen sichtbar */
-.form-actions-sticky {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-  align-items: center;
-  box-shadow: 0 -4px 12px rgba(16, 24, 40, .06);
-}
-.dirty-hint {
-  margin-right: auto;
-  display: inline-flex; align-items: center; gap: .4rem;
-  font-size: .8rem; color: var(--color-primary-dark);
-}
-.dirty-hint .pi { font-size: .5rem; }
 
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -1492,7 +1493,6 @@ html {
 .place-compact { padding: .4rem 0 .5rem; }
 .place-compact legend { display: flex; align-items: center; gap: .3rem; }
 .place-compact .legend-btn { padding-block: 0; font-size: .75rem; text-transform: none; letter-spacing: 0; }
-.place-form .place-actions { margin: .3rem -1.35rem .4rem; padding: .6rem 1.35rem; border-bottom: 1px solid var(--color-border); border-radius: 0; }
 .place-form .place-section:first-of-type { border-top: none; }
 
 /* ════════════════════════════════════════════════════════

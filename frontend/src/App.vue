@@ -236,16 +236,11 @@ export default defineComponent({
     async function startEditPerson(person) {
       editingPerson.value = await fetchPerson(person.id)
     }
-    // Gespeichert: bei der bearbeiteten Person bleiben (neu geladene Fassung vom Server);
-    // eine neu angelegte Person lässt das Formular leer für die nächste
-    function onPersonSaved(person) {
+    // Automatisch gespeichert: die Fassung vom Server wird zur bearbeiteten Person (auch eine eben
+    // angelegte); shown = false, wenn das Formular inzwischen schon eine andere Person zeigt
+    function onPersonSaved(person, shown = true) {
       personRefresh.value++
-      if (editingPerson.value && person?.id) editingPerson.value = person
-    }
-    // Abbrechen: Änderungen verwerfen, Person neu laden – nicht zum leeren Formular wechseln
-    async function onDiscardPerson() {
-      const id = editingPerson.value?.id
-      if (id) await startEditPerson({ id }).catch(() => { editingPerson.value = null })
+      if (shown && person?.id) editingPerson.value = person
     }
     function onCancelEditPerson() { editingPerson.value = null }
 
@@ -287,14 +282,11 @@ export default defineComponent({
     async function startEditSource(source) {
       editingSource.value = await fetchSource(source.id)
     }
-    // Gespeichert/Abbrechen: bei der bearbeiteten Quelle bleiben (neu laden statt leeres Formular)
-    async function reloadSource() {
-      const id = editingSource.value?.id
-      if (id) await startEditSource({ id }).catch(() => { editingSource.value = null })
-    }
-    function onSourceSaved() {
+    // Automatisch gespeichert: die Fassung vom Server wird zur bearbeiteten Quelle (auch eine eben angelegte);
+    // shown = false, wenn das Formular inzwischen schon eine andere zeigt
+    function onSourceSaved(source, shown = true) {
       sourceRefresh.value++
-      reloadSource()
+      if (shown) editingSource.value = source
     }
     function onCancelEditSource() { editingSource.value = null }
 
@@ -305,14 +297,10 @@ export default defineComponent({
     async function startEditRepository(repo) {
       editingRepository.value = await fetchRepository(repo.id)
     }
-    async function reloadRepository() {
-      const id = editingRepository.value?.id
-      if (id) await startEditRepository({ id }).catch(() => { editingRepository.value = null })
-    }
-    function onRepositorySaved() {
+    function onRepositorySaved(repo, shown = true) {
       repoRefresh.value++
       sourceRefresh.value++          // Quellenliste zeigt den Archivnamen
-      reloadRepository()
+      if (shown) editingRepository.value = repo
     }
     function onRepositoryDeleted(id) {
       if (editingRepository.value?.id === id) editingRepository.value = null
@@ -339,8 +327,8 @@ export default defineComponent({
       view.value = 'places'
       await selectPlace(id)
     }
-    function onPlaceSaved(place) {
-      editingPlace.value = place
+    function onPlaceSaved(place, shown = true) {
+      if (shown) editingPlace.value = place
       placeRefresh.value++
     }
     // Unterort/neuer Ort angelegt oder zusammengeführt: dorthin wechseln
@@ -407,12 +395,12 @@ export default defineComponent({
       view, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
       trees, currentTree, currentTreeId, showOpen, showNew, showImport, fileMenu, fileMenuItems,
       loadTrees, openTree, onTreeDeleted,
-      personRefresh, editingPerson, startEditPerson, onPersonSaved, onDiscardPerson, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
+      personRefresh, editingPerson, startEditPerson, onPersonSaved, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
       familyPerson, openFamily, openFamilyFor, closeFamily, onFamilyChanged,
       familyRefresh, editingFamilyId, creatingFamily, selectFamily, startNewFamily,
       onFamilyEdited, onFamilyCreated, onFamilyDeleted, openFamilyEditor,
-      sourceRefresh, editingSource, startEditSource, onSourceSaved, onCancelEditSource, reloadSource,
-      repoRefresh, editingRepository, startEditRepository, reloadRepository, onRepositorySaved, onRepositoryDeleted,
+      sourceRefresh, editingSource, startEditSource, onSourceSaved, onCancelEditSource,
+      repoRefresh, editingRepository, startEditRepository, onRepositorySaved, onRepositoryDeleted,
       openRepositoryFromSource, openSourceFromRepository,
       placeRefresh, editingPlace, selectPlace, openPlaceFromStats, onPlaceSaved, onPlaceChanged, onPlaceDeleted,
       mediaRefresh, editingMedia, selectMedia, onMediaChanged, onMediaDeleted, openPersonFromMedia, openSourceFromMedia,
@@ -516,7 +504,6 @@ export default defineComponent({
       :refresh="personRefresh"
       @set-start="setStartPerson"
       @person-saved="onPersonSaved"
-      @cancel-edit="onDiscardPerson"
       @edit-person="id => startEditPerson({ id })"
       @edit-family="openFamilyEditor"
       @relations="openFamilyFor"
@@ -561,7 +548,6 @@ export default defineComponent({
       v-if="canEdit || editingSource"
       :edit-source="editingSource"
       @source-saved="onSourceSaved"
-      @cancel-edit="reloadSource"
       @open-repository="openRepositoryFromSource"
     />
     <div v-else class="card empty-hint">
@@ -574,7 +560,7 @@ export default defineComponent({
     <RepositoryList :refresh="repoRefresh" :selected-id="editingRepository?.id ?? null"
       @edit="startEditRepository" @create="editingRepository = null" @deleted="onRepositoryDeleted" />
     <RepositoryForm v-if="canEdit || editingRepository" :edit-repository="editingRepository"
-      @saved="onRepositorySaved" @cancel-edit="reloadRepository" @open-source="openSourceFromRepository" />
+      @saved="onRepositorySaved" @open-source="openSourceFromRepository" />
     <div v-else class="card empty-hint">
       <i class="pi pi-building" />
       <p>{{ t('repository.selectHint') }}</p>

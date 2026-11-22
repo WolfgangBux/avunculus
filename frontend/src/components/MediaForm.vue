@@ -1,14 +1,16 @@
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import InputText from 'openvue/inputtext'
 import Textarea from 'openvue/textarea'
 import Button from 'openvue/button'
 import LastChange from './LastChange.vue'
+import SaveStatus from './SaveStatus.vue'
 import MediaThumb from './MediaThumb.vue'
 import { updateMedia, deleteMedia, mediaFileUrl } from '../api/media.js'
 import { toGedcomDate, isValidGedcomDate } from '../gedcom.js'
 import { displayDate } from '../format.js'
 import { useNotify, useAsk } from '../composables/feedback.js'
+import { useRecordAutosave } from '../composables/autosave.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 
@@ -18,17 +20,33 @@ const emit  = defineEmits(['saved', 'deleted', 'open-person', 'open-family', 'op
 const notify = useNotify()
 const ask    = useAsk()
 
-const form    = reactive({ title: '', media_date: '', notes: '' })
-const error   = ref('')
-const saving  = ref(false)
-const snapshot = ref('')
+const form  = ref({ title: '', media_date: '', notes: '' })
+const error = ref('')
 
-watch(() => props.media, m => {
-  Object.assign(form, { title: m.title ?? '', media_date: m.media_date ?? '', notes: m.notes ?? '' })
-  error.value = ''
-  snapshot.value = JSON.stringify(form)
-}, { immediate: true })
-const dirty = computed(() => JSON.stringify(form) !== snapshot.value)
+// Datum in GEDCOM-Form („12.3.1890“ → „12 MAR 1890“) – zum Speichern schon beim Tippen, im Feld beim Verlassen
+const gedcomDate = f => toGedcomDate(f.media_date)
+const { status, flush, discard } = useRecordAutosave({
+  form,
+  record:  () => props.media,
+  enabled: () => canEdit.value,
+  load(m) {
+    form.value  = { title: m.title ?? '', media_date: m.media_date ?? '', notes: m.notes ?? '' }
+    error.value = ''
+  },
+  payload: f => ({ ...f, media_date: gedcomDate(f) }),
+  validate(f, { current }) {
+    const d  = gedcomDate(f)
+    const ok = !d || isValidGedcomDate(d)
+    if (current) error.value = ok ? '' : t('person.eventFields.dateError')
+    return ok
+  },
+  save:  (id, data) => updateMedia(id, data),
+  saved: (m, shown) => emit('saved', shown ? m : null),
+  onError(e, current) {
+    if (current && e?.errors?.media_date) error.value = t('person.eventFields.dateError')
+    return false
+  },
+})
 
 const mime    = computed(() => props.media.mime_type ?? '')
 const kind    = computed(() => mime.value.startsWith('image/') && !/tiff|heic/.test(mime.value) ? 'image'
@@ -48,29 +66,14 @@ const fileInfo = computed(() => [
   props.media.width && props.media.height ? `${props.media.width} × ${props.media.height} px` : null,
 ].filter(Boolean).join(' · '))
 
-function convertDate() { form.media_date = toGedcomDate(form.media_date) }
-
-async function save() {
-  convertDate()
-  if (form.media_date && !isValidGedcomDate(form.media_date)) { error.value = t('person.eventFields.dateError'); return }
-  saving.value = true
-  try {
-    const m = await updateMedia(props.media.id, { ...form })
-    notify.success(t('media.saved'))
-    emit('saved', m)
-  } catch (e) {
-    error.value = e?.errors?.media_date ? t('person.eventFields.dateError') : ''
-    notify.error(t('action.saveError'))
-  } finally {
-    saving.value = false
-  }
-}
+function convertDate() { form.value.media_date = toGedcomDate(form.value.media_date) }
 
 async function remove() {
   const n   = props.media.links?.length ?? 0
   const msg = n ? t('media.deleteConfirmLinked', { title: props.media.title || props.media.original_name, n })
                 : t('media.deleteConfirm', { title: props.media.title || props.media.original_name })
   if (!(await ask(msg))) return
+  discard()
   await deleteMedia(props.media.id)
   notify.success(t('media.deleted'))
   emit('deleted', props.media)
@@ -111,7 +114,7 @@ function openLink(l) {
       </span>
     </div>
 
-    <form :class="{ 'read-only': !canEdit }" novalidate @submit.prevent="save">
+    <form :class="{ 'read-only': !canEdit }" novalidate @submit.prevent="flush">
       <fieldset>
         <legend>{{ t('media.sections.description') }}</legend>
         <div class="form-group">
@@ -122,7 +125,7 @@ function openLink(l) {
           <label for="media-date">{{ t('media.fields.date') }}</label>
           <InputText id="media-date" v-model="form.media_date" class="gedcom-date" :invalid="!!error"
             :placeholder="t('person.eventFields.datePlaceholder')" autocomplete="off" spellcheck="false"
-            @input="error = ''" @blur="convertDate" />
+            @blur="convertDate" />
           <small v-if="error" class="error-msg">{{ error }}</small>
           <small v-else-if="form.media_date" class="field-hint">{{ displayDate(form.media_date) }}</small>
         </div>
@@ -148,8 +151,7 @@ function openLink(l) {
       <div class="form-actions">
         <Button :label="t('action.delete')" icon="pi pi-trash" severity="danger" text @click="remove" />
         <span class="spacer" />
-        <span v-if="dirty" class="dirty-hint"><i class="pi pi-circle-fill" /> {{ t('person.dirty') }}</span>
-        <Button type="submit" icon="pi pi-check" :loading="saving" :disabled="!dirty" :label="t('action.saveChanges')" />
+        <SaveStatus v-if="canEdit" :status="status" @retry="flush" />
       </div>
     </form>
     <LastChange type="media" :id="media.id" :label="media.title || media.original_name" :stamp="media" />
