@@ -76,7 +76,7 @@ final class PersonQuery
      * im Geburts-, Tauf- oder Sterbedatum („Müller 1879“).
      * @return array{total: int, items: list<array>}
      */
-    public function search(string $q, int $limit, int $offset, array $exclude = []): array
+    public function search(string $q, int $limit, int $offset, array $exclude = [], ?int $around = null): array
     {
         [$where, $params] = $this->filter($q, $exclude);
 
@@ -84,24 +84,52 @@ final class PersonQuery
         $count->execute([$this->treeId, ...$params]);
         $total = (int) $count->fetchColumn();
 
+        // around: die Seite, auf der diese Person steht (mit ein paar Namen davor) – statt die Person oben anzuheften
+        if ($around !== null && ($pos = $this->position($around, $where, $params)) !== null) {
+            $offset = max(0, $pos - self::AROUND_BEFORE);
+        }
+
         $stmt = $this->db->prepare("
-            SELECT p.id
-            FROM persons p
-            LEFT JOIN (
-                SELECT person_id, given_name, surname FROM (
-                    SELECT n.person_id, n.given_name, n.surname,
-                           ROW_NUMBER() OVER (PARTITION BY n.person_id ORDER BY n.sort_order, n.id) AS rn
-                    FROM person_names n JOIN persons p2 ON p2.id = n.person_id
-                    WHERE p2.tree_id = ?
-                ) x WHERE rn = 1
-            ) fn ON fn.person_id = p.id
+            SELECT p.id FROM persons p " . self::FIRST_NAME_JOIN . "
             WHERE p.tree_id = ? $where
-            ORDER BY COALESCE(fn.surname, '') = '', COALESCE(fn.surname, ''), COALESCE(fn.given_name, ''), p.id   -- ohne Nachnamen ans Ende
+            ORDER BY " . self::ORDER . "
             LIMIT $limit OFFSET $offset
         ");
         $stmt->execute([$this->treeId, $this->treeId, ...$params]);
 
-        return ['total' => $total, 'items' => $this->slim($stmt->fetchAll(PDO::FETCH_COLUMN))];
+        return ['total' => $total, 'offset' => $offset, 'items' => $this->slim($stmt->fetchAll(PDO::FETCH_COLUMN))];
+    }
+
+    /** So viele Personen stehen bei „around“ noch über der gesuchten */
+    private const AROUND_BEFORE = 10;
+
+    /** Erster Name je Person (für die Sortierung) */
+    private const FIRST_NAME_JOIN = "
+        LEFT JOIN (
+            SELECT person_id, given_name, surname FROM (
+                SELECT n.person_id, n.given_name, n.surname,
+                       ROW_NUMBER() OVER (PARTITION BY n.person_id ORDER BY n.sort_order, n.id) AS rn
+                FROM person_names n JOIN persons p2 ON p2.id = n.person_id
+                WHERE p2.tree_id = ?
+            ) x WHERE rn = 1
+        ) fn ON fn.person_id = p.id";
+
+    /** Alphabetisch nach Nachname, Vorname; ohne Nachnamen ans Ende */
+    private const ORDER = "COALESCE(fn.surname, '') = '', COALESCE(fn.surname, ''), COALESCE(fn.given_name, ''), p.id";
+
+    /** Stelle (ab 0) dieser Person in der sortierten Liste; null, wenn sie nicht zur Suche passt */
+    private function position(int $id, string $where, array $params): ?int
+    {
+        $stmt = $this->db->prepare("
+            SELECT pos FROM (
+                SELECT p.id, ROW_NUMBER() OVER (ORDER BY " . self::ORDER . ") - 1 AS pos
+                FROM persons p " . self::FIRST_NAME_JOIN . "
+                WHERE p.tree_id = ? $where
+            ) ranked WHERE id = ?
+        ");
+        $stmt->execute([$this->treeId, $this->treeId, ...$params, $id]);
+        $pos = $stmt->fetchColumn();
+        return $pos === false ? null : (int) $pos;
     }
 
     /** Erste Person (alphabetisch) – Standard-Hauptperson des Stammbaums */

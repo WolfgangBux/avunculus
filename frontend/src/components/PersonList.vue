@@ -26,7 +26,7 @@ export default defineComponent({
   setup(props, { emit }) {
     const ask = useAsk()
     // Suche und Seiten kommen vom Server – auch bei 50.000+ Personen werden nur 100 auf einmal geladen
-    const { query, items: persons, total, loading, error, reload, loadMore } =
+    const { query, items: persons, total, start, loading, error, reload, loadMore, loadBefore, loadAround } =
       usePagedSearch((q, opts) => searchPersons(q, opts), { pageSize: PAGE })
 
     async function remove(p) {
@@ -36,15 +36,27 @@ export default defineComponent({
       await reload()
     }
 
-    onMounted(reload)
-    watch(() => props.refresh, reload)
-
     const isSelected = p => props.selectedId != null && String(p.id) === String(props.selectedId)
 
-    // Gewählte Person, die (noch) nicht in den geladenen Seiten steht, oben anheften
+    // Gewählte Person (z. B. aus dem Stammbaum) an ihrer alphabetischen Stelle zeigen: steht sie nicht in den
+    // geladenen Zeilen, die Seite laden, auf der sie steht – davor und dahinter lässt sich weiterblättern
+    const listEl = ref(null)
+    async function showSelected({ force = false } = {}) {
+      if (props.selectedId == null) return force ? reload() : undefined
+      const jump = force || !persons.value.some(isSelected)
+      if (jump) await loadAround(props.selectedId)
+      await nextTick()
+      // nach dem Nachladen in die Mitte; ein Klick in der Liste soll sie nicht verschieben
+      listEl.value?.querySelector('.person-card.selected')?.scrollIntoView({ block: jump ? 'center' : 'nearest' })
+    }
+    onMounted(() => showSelected({ force: true }))
+    watch(() => props.selectedId, () => showSelected())
+    watch(() => props.refresh, () => showSelected({ force: true }))   // nach Speichern: neuer Name → neue Stelle
+
+    // Nur wenn sie nicht zur Suche passt: gewählte Person oben anheften
     const pinned = computed(() => {
       const sp = props.selectedPerson
-      if (!sp || persons.value.some(isSelected)) return null
+      if (!sp || loading.value || persons.value.some(isSelected)) return null
       const n  = sp.names?.[0] ?? {}
       const ev = type => sp.events?.find(e => e.event_type === type)
       return {
@@ -58,14 +70,9 @@ export default defineComponent({
     })
     const rows = computed(() => pinned.value ? [pinned.value, ...persons.value] : persons.value)
 
-    // Gewählte Person sichtbar machen
-    const listEl = ref(null)
-    watch(() => [props.selectedId, persons.value.length], async () => {
-      await nextTick()
-      listEl.value?.querySelector('.person-card.selected')?.scrollIntoView({ block: 'nearest' })
-    })
+    const rest = computed(() => total.value - start.value - persons.value.length)
 
-    return { canEdit, t, PAGE, persons, rows, total, query, loading, error, remove, loadMore, emit, isSelected, listEl,
+    return { canEdit, t, PAGE, persons, rows, total, start, rest, query, loading, error, remove, loadMore, loadBefore, emit, isSelected, listEl,
              primaryNameLabel, lifeSpan, sexClass, mediaThumbUrl }
   },
 })
@@ -94,6 +101,10 @@ export default defineComponent({
   <p v-else-if="!persons.length" class="muted">{{ t('person.list.noMatch') }}</p>
 
   <ul v-else ref="listEl" class="person-list">
+    <li v-if="start > 0" class="list-more">
+      <Button :label="t('list.loadBefore', { n: Math.min(PAGE, start), rest: start.toLocaleString() })"
+        icon="pi pi-angle-up" text size="small" :loading="loading" @click="loadBefore" />
+    </li>
     <li
       v-for="p in rows" :key="(p._pinned ? 'pin-' : '') + p.id"
       :class="['person-card', sexClass(p), { selected: isSelected(p), pinned: p._pinned }]"
@@ -125,8 +136,8 @@ export default defineComponent({
         <button v-if="canEdit" class="icon-btn danger" :title="t('action.delete')" :aria-label="t('action.delete')" @click="remove(p)"><i class="pi pi-trash" /></button>
       </div>
     </li>
-    <li v-if="persons.length < total" class="list-more">
-      <Button :label="t('list.loadMore', { n: Math.min(PAGE, total - persons.length), rest: (total - persons.length).toLocaleString() })"
+    <li v-if="rest > 0" class="list-more">
+      <Button :label="t('list.loadMore', { n: Math.min(PAGE, rest), rest: rest.toLocaleString() })"
         icon="pi pi-angle-down" text size="small" :loading="loading" @click="loadMore" />
     </li>
   </ul>

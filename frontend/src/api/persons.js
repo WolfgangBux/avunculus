@@ -6,9 +6,10 @@ export const updatePerson   = (id, data)  => request('PUT',    `/persons/${id}`,
 export const deletePerson   = (id)        => request('DELETE', `/persons/${id}`)
 
 /** Serverseitige Suche: { total, items } – q: Namen und/oder Jahreszahl, exclude: Personen-IDs */
-export function searchPersons(q = '', { limit = 50, offset = 0, exclude = [] } = {}) {
+export function searchPersons(q = '', { limit = 50, offset = 0, exclude = [], around = null } = {}) {
   const params = new URLSearchParams({ q, limit: String(limit), offset: String(offset) })
   if (exclude.length) params.set('exclude', exclude.join(','))
+  if (around) params.set('around', String(around))   // Seite, auf der diese Person steht
   return request('GET', `/persons/search?${params}`)
 }
 export const fetchPersonPlaces = (id) => request('GET',    `/persons/${id}/places`)

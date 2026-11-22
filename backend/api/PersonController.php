@@ -8,13 +8,14 @@ class PersonController extends TreeScopedController
     private const VALID_NAME_TYPES = ['BIRTH', 'MARRIED', 'AKA', 'IMMIGRANT', 'FORMAL', 'PROFESSIONAL', 'RELIGIOUS'];
     private const VALID_ROLES      = GedcomTags::ASSO_ROLES;
 
-    // GET /api/persons/search?q=&limit=&offset=&exclude=1,2
+    // GET /api/persons/search?q=&limit=&offset=&exclude=1,2&around=<Person>
     public function search(): void
     {
         $limit   = max(1, min(200, (int) ($_GET['limit'] ?? 50)));
         $offset  = max(0, (int) ($_GET['offset'] ?? 0));
         $exclude = array_filter(explode(',', (string) ($_GET['exclude'] ?? '')), 'is_numeric');
-        $this->json((new PersonQuery($this->db, $this->treeId))->search((string) ($_GET['q'] ?? ''), $limit, $offset, $exclude));
+        $around  = (int) ($_GET['around'] ?? 0) ?: null;   // Seite, auf der diese Person steht (Antwort: offset)
+        $this->json((new PersonQuery($this->db, $this->treeId))->search((string) ($_GET['q'] ?? ''), $limit, $offset, $exclude, $around));
     }
 
     public function show(int $id): void

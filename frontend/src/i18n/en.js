@@ -35,6 +35,7 @@ export default {
   },
   list: {
     loadMore: 'Load {{n}} more ({{rest}} left)',
+    loadBefore: 'Load {{n}} earlier ({{rest}} left)',
   },
   date: {
     months:  'January,February,March,April,May,June,July,August,September,October,November,December',
