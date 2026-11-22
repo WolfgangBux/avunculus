@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { t } from '../i18n/index.js'
+import { t, locale, setLocale, availableLocales } from '../i18n/index.js'
 import { isAdmin, canEdit, appVersion } from '../auth.js'
 import { updateStatus, updateAvailable, showUpdate } from './updates.js'
 import { currentTreeId } from '../trees.js'
@@ -40,7 +40,7 @@ function exportGedcom({ media = false } = {}) {
   a.remove()
 }
 
-/** Benutzermenü (angemeldet).  on: { password, users, settings, logout } */
+/** Benutzermenü (angemeldet) mit der Sprachwahl.  on: { password, users, settings, logout } */
 export function useUserMenu({ on }) {
   return computed(() => [
     { label: t('auth.changePassword'), icon: 'pi pi-key',      command: on.password },
@@ -49,6 +49,10 @@ export function useUserMenu({ on }) {
     { label: updateAvailable.value ? t('update.available', { version: updateStatus.value.latest }) : t('update.menu'),
       icon: updateAvailable.value ? 'pi pi-arrow-circle-up' : 'pi pi-sync', visible: isAdmin.value,
       class: updateAvailable.value ? 'menu-highlight' : undefined, command: () => { showUpdate.value = true } },
+    { separator: true },
+    // Sprachwahl: die anderen Sprachen in ihrer eigenen Bezeichnung
+    ...availableLocales.filter(l => l.value !== locale.value)
+      .map(l => ({ label: l.name, icon: 'pi pi-globe', lang: l.value, command: () => setLocale(l.value) })),
     { separator: true },
     { label: t('auth.logout'),         icon: 'pi pi-sign-out', command: on.logout },
     { separator: true, visible: !!appVersion.value },

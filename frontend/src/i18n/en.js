@@ -17,6 +17,7 @@ export default {
     media: 'Media',
     statistics: 'Statistics',
     analysis: 'Analysis',
+    more: 'More',
   },
   search: {
     label:       'Search',

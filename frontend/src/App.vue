@@ -48,6 +48,7 @@ import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel, legalLin
 import { useNotify } from './composables/feedback.js'
 import { useHashRoute } from './composables/hashRoute.js'
 import { useTreeMenu, useUserMenu, useAnalysisMenu } from './composables/appMenus.js'
+import { useNavOverflow } from './composables/navOverflow.js'
 import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
@@ -393,6 +394,31 @@ export default defineComponent({
       if (type === 'media')  { view.value = 'media'; await selectMedia(id) }
     }
 
+    // ── Hauptnavigation: Tabs und Auswertung; was nicht in die Leiste passt, steht unter „Mehr“ ──
+    const navTabs = computed(() => [
+      { key: 'tree',     icon: 'pi pi-sitemap',     label: t('nav.tree'),     active: view.value === 'tree',     go: goTree },
+      { key: 'persons',  icon: 'pi pi-user',        label: t('nav.persons'),  active: view.value === 'persons',  go: goPersons },
+      { key: 'families', icon: 'pi pi-users',       label: t('nav.families'), active: view.value === 'families', go: () => { view.value = 'families' } },
+      { key: 'sources',  icon: 'pi pi-book',        label: t('nav.sources'),
+        active: view.value === 'sources' || view.value === 'repositories', go: () => { view.value = sourcesView.value } },
+      { key: 'places',   icon: 'pi pi-map-marker',  label: t('nav.places'),   active: view.value === 'places',   go: () => { view.value = 'places' } },
+      { key: 'media',    icon: 'pi pi-images',      label: t('nav.media'),    active: view.value === 'media',    go: () => { view.value = 'media' } },
+    ])
+    const navEl    = ref(null)
+    const navItems = ref([])      // Tabs, dann der Auswertungs-Knopf
+    const moreBtn  = ref(null)
+    const moreMenu = ref(null)
+    const { visible: navVisible, measuring: navMeasuring, update: updateNav } = useNavOverflow({ nav: navEl, items: navItems, more: moreBtn })
+    watch([locale, () => currentTree.value?.name, user], updateNav)   // Beschriftungen bzw. Nachbarn ändern ihre Breite
+    const analysisShown = computed(() => navMeasuring.value || navVisible.value > navTabs.value.length)
+    const moreItems = computed(() => [
+      ...navTabs.value.slice(navVisible.value).map(tab => ({
+        label: tab.label, icon: tab.icon, class: tab.active ? 'menu-active' : undefined, command: tab.go })),
+      ...(analysisShown.value ? [] : [{ label: t('nav.analysis'), icon: 'pi pi-chart-line', items: analysisMenuItems.value }]),
+    ])
+    const moreActive = computed(() => navTabs.value.slice(navVisible.value).some(tab => tab.active)
+                                      || (!analysisShown.value && view.value === 'statistics'))
+
     // ── Position in der Adresse: #/<Baum>/<Ansicht>[/<ID>] (siehe composables/hashRoute.js) ──
     // Jeder Tab steht hier genau einmal: welche ID er in der Adresse merkt und wie er sie
     // wiederherstellt. Ein neuer Tab braucht nur einen weiteren Eintrag.
@@ -419,6 +445,7 @@ export default defineComponent({
       t, locale, setLocale, availableLocales,
       user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
       view, openFromSearch, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
+      navTabs, navEl, navItems, navVisible, navMeasuring, moreBtn, moreMenu, moreItems, moreActive, analysisShown,
       trees, currentTree, currentTreeId, showOpen, showNew, showImport, treeMenu, treeMenuItems, analysisMenu, analysisMenuItems, sourcesView,
       loadTrees, openTree, onTreeDeleted,
       personRefresh, editingPerson, startEditPerson, onPersonSaved, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
@@ -453,19 +480,23 @@ export default defineComponent({
   </button>
   <Menu id="tree-menu" ref="treeMenu" :model="treeMenuItems" popup />
 
-  <nav class="app-nav">
-    <button :class="['nav-tab', { active: view === 'tree' }]" @click="goTree">{{ t('nav.tree') }}</button>
-    <button :class="['nav-tab', { active: view === 'persons' }]" @click="goPersons">{{ t('nav.persons') }}</button>
-    <button :class="['nav-tab', { active: view === 'families' }]" @click="view = 'families'">{{ t('nav.families') }}</button>
-    <button :class="['nav-tab', { active: view === 'sources' || view === 'repositories' }]" @click="view = sourcesView">{{ t('nav.sources') }}</button>
-    <button :class="['nav-tab', { active: view === 'places' }]" @click="view = 'places'">{{ t('nav.places') }}</button>
-    <button :class="['nav-tab', { active: view === 'media' }]" @click="view = 'media'">{{ t('nav.media') }}</button>
-    <span class="nav-divider" aria-hidden="true" />
-    <button :class="['nav-tab', 'nav-menu', { active: view === 'statistics' }]" aria-haspopup="true" aria-controls="analysis-menu"
+  <nav ref="navEl" class="app-nav">
+    <button v-for="(tab, i) in navTabs" :key="tab.key" :ref="el => (navItems[i] = el)"
+      :class="['nav-tab', { active: tab.active, 'nav-hidden': i >= navVisible }]" @click="tab.go">{{ tab.label }}</button>
+    <span :class="['nav-divider', { 'nav-hidden': !analysisShown }]" aria-hidden="true" />
+    <button :ref="el => (navItems[navTabs.length] = el)"
+      :class="['nav-tab', 'nav-menu', { active: view === 'statistics', 'nav-hidden': !analysisShown }]"
+      aria-haspopup="true" aria-controls="analysis-menu"
       :aria-label="t('nav.analysis')" :title="t('nav.analysis')" @click="analysisMenu.toggle($event)">
       <i class="pi pi-chart-line nav-menu-icon" /><span class="nav-menu-label">{{ t('nav.analysis') }}</span> <i class="pi pi-angle-down" />
     </button>
     <TieredMenu id="analysis-menu" ref="analysisMenu" :model="analysisMenuItems" popup />
+    <!-- „Mehr“: was nicht in die Leiste passt (beim Messen kurz sichtbar, um seine Breite zu kennen) -->
+    <button ref="moreBtn" :class="['nav-tab', 'nav-menu', { active: moreActive, 'nav-hidden': !navMeasuring && !moreItems.length }]"
+      aria-haspopup="true" aria-controls="more-menu" @click="moreMenu.toggle($event)">
+      {{ t('nav.more') }} <i class="pi pi-angle-down" />
+    </button>
+    <TieredMenu id="more-menu" ref="moreMenu" :model="moreItems" popup />
   </nav>
 
 
@@ -483,13 +514,6 @@ export default defineComponent({
   </button>
   <Menu id="user-menu" ref="userMenu" :model="userMenuItems" popup />
 
-  <div class="lang-switcher">
-    <button
-      v-for="l in availableLocales" :key="l.value"
-      :class="['lang-btn', { active: locale === l.value }]"
-      @click="setLocale(l.value)"
-    >{{ l.label }}</button>
-  </div>
 </header>
 
 <div v-if="!user && currentTreeId" class="readonly-banner">
@@ -632,6 +656,12 @@ export default defineComponent({
   <a :href="LICENSES_URL" target="_blank" rel="noopener">{{ t('app.thirdParty') }}</a>
   <a v-if="legalLinks.imprint_url" :href="legalLinks.imprint_url" target="_blank" rel="noopener">{{ t('app.imprint') }}</a>
   <a v-if="legalLinks.privacy_url" :href="legalLinks.privacy_url" target="_blank" rel="noopener">{{ t('app.privacy') }}</a>
+  <!-- Sprachwahl für Besucher (Angemeldete: im Benutzermenü) -->
+  <span v-if="!user" class="footer-lang">
+    <i class="pi pi-globe" aria-hidden="true" />
+    <button v-for="l in availableLocales" :key="l.value" type="button" :class="{ active: locale === l.value }"
+      :aria-pressed="locale === l.value" :lang="l.value" @click="setLocale(l.value)">{{ l.name }}</button>
+  </span>
 </footer>
 
 <FamilyModal

@@ -24,7 +24,7 @@ const active  = ref(0)
 const inputEl = ref(null)
 
 const isMac  = /Mac|iPhone|iPad/.test(navigator.platform)
-const hotkey = isMac ? '⌘K' : t('search.ctrlK')
+const hotkey = computed(() => isMac ? '⌘K' : t('search.ctrlK'))
 
 /** „Wiesent“ statt „Wiesent, Wiesent, Regensburg, Oberpfalz …“ */
 const shortPlace = pl => pl?.split(',')[0].trim() ?? ''

@@ -19,6 +19,6 @@ export function t(key, params) {
 }
 
 export const availableLocales = [
-  { value: 'de', label: 'DE' },
-  { value: 'en', label: 'EN' },
+  { value: 'de', label: 'DE', name: 'Deutsch' },
+  { value: 'en', label: 'EN', name: 'English' },
 ]

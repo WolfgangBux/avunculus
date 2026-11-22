@@ -17,6 +17,7 @@ export default {
     media: 'Medien',
     statistics: 'Statistik',
     analysis: 'Auswertung',
+    more: 'Mehr',
   },
   search: {
     label:       'Suchen',
