@@ -23,11 +23,11 @@ Avunculus is a web application for recording, researching and sharing family his
 - **Relatives tree**: create a new tree from all blood relatives of a person and their partners.
 - **Statistics** with charts and a map.
 - **Reports for printing or PDF**: ancestor list with Kekulé numbers (Ahnenliste), pedigree chart, descendant report, family group sheet, individual sheet, a family book in the style of a German *Ortsfamilienbuch* (numbered families with cross-references and an index of names), and lists of births, baptisms, deaths, marriages, occupations and cemeteries. Family book and lists can be limited to years and a place, the family book also to a surname. Each report opens as a print view in a new tab; the browser saves it as a PDF.
-- **Users and privacy**: administrators and editors. Visitors who are not logged in only see trees that have been published, with living people hidden.
+- **Users and privacy**: administrators and editors. Visitors who are not logged in only see trees that an administrator has published (tree menu → *Make public*), with living people hidden.
 - **Change log**: who changed what and when, down to individual fields ("Birth – date: 1788 → ABT 1788").
 - **Relationship calculator**: names how two people are related (great-uncle, second cousin once removed, half-sister, brother-in-law, stepmother …) and draws the path through their closest common ancestors – in German with the usual terms (Onkel 2. Grades, Ururgroßvater). Pedigree collapse shows every way they are related.
 - **Error search**: finds implausible dates such as a mother who is too young or too old, a child born after a parent's death, death before birth or a marriage after death. Approximate dates (about, before, between) never cause false alarms.
-- User interface in **English and German**.
+- User interface in **English and German**, usable down to phone size: what does not fit in the menu bar moves into a *More* menu.
 
 This software is licensed under the GNU Affero General Public License v3 or later. See [LICENSE](LICENSE) for the full text.
 The web interface bundles open-source libraries under MIT, BSD and ISC licenses; their notices are collected in `THIRD-PARTY-LICENSES.txt` (in the release archive and linked in the app's footer). If you run a modified version on a public server, the AGPL requires you to offer its source code to your users: set `SOURCE_URL` in `frontend/src/about.js` to your repository.
@@ -82,6 +82,10 @@ The `.htaccess` file sends every request through `router.php`, which only serves
 | `UPDATE_CHECK` | Check GitHub for new releases (`0` to turn off) | `1` |
 
 Environment variables, where set, take precedence over `backend/.env`.
+
+#### Site name
+
+Sign in as administrator, open *Settings…* in the user menu and enter a name for your site, e.g. "Smith family history". It appears next to the logo and as the title in the browser tab. Leave it empty to show "Avunculus".
 
 #### Legal notice and privacy policy
 
