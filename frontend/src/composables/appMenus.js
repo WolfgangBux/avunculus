@@ -6,6 +6,7 @@ import { currentTreeId } from '../trees.js'
 import { gedcomExportUrl } from '../api/trees.js'
 import { openChangeLog } from './changeLog.js'
 import { showChecks } from './checks.js'
+import { openReports } from './reports.js'
 
 /**
  * Datei-Menü. Besucher: Öffnen, Verwandtschaftsrechner; Bearbeiter: + Export, Änderungsprotokoll, Fehlersuche; Admin: + Neu, Import, Verwandten-Baum.
@@ -57,5 +58,27 @@ export function useUserMenu({ on }) {
     { label: t('auth.logout'),         icon: 'pi pi-sign-out', command: on.logout },
     { separator: true, visible: !!appVersion.value },
     { label: 'Avunculus ' + appVersion.value, disabled: true, visible: !!appVersion.value, class: 'menu-version' },
+  ])
+}
+
+/**
+ * Berichte-Menü: Blätter zu einer Person/Familie und Listen; jeder Eintrag öffnet den Berichtsdialog
+ * mit dieser Art. context(): { person, family } – was gerade angezeigt wird (zum Vorbelegen).
+ */
+export function useReportsMenu({ context }) {
+  const item = (kind, icon) => ({ label: t('reports.kinds.' + kind) + '…', icon, disabled: !currentTreeId.value,
+                                  command: () => openReports(kind, context()) })
+  return computed(() => [
+    item('ancestors',   'pi pi-sitemap'),
+    item('descendants', 'pi pi-share-alt'),
+    item('family',      'pi pi-users'),
+    item('person',      'pi pi-id-card'),
+    { separator: true },
+    item('births',      'pi pi-star'),
+    item('baptisms',    'pi pi-sun'),
+    item('marriages',   'pi pi-heart'),
+    item('deaths',      'pi pi-minus-circle'),
+    item('occupations', 'pi pi-briefcase'),
+    item('burials',     'pi pi-map-marker'),
   ])
 }

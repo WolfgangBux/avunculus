@@ -1,0 +1,127 @@
+/* Druckansicht der Berichte (ReportPage): am Bildschirm ein Blatt auf grauem Grund, im Druck nur das Blatt */
+
+@page { size: A4; margin: 15mm 14mm 16mm; }
+
+body.report-body {
+  background: #e9ecef;
+  color: #1f2328;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 10.5pt;
+  line-height: 1.4;
+}
+
+.report-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+  padding: .5rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #dee2e6;
+  font-family: system-ui, sans-serif;
+  font-size: .875rem;
+}
+.report-toolbar-title { font-weight: 600; }
+.report-toolbar-hint  { color: #6c757d; flex: 1; min-width: 12rem; }
+
+.report-sheet {
+  box-sizing: border-box;
+  width: 100%;          /* #app ist ein Flex-Container – sonst schrumpft das Blatt auf seinen Inhalt */
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 1.5rem auto;
+  padding: 15mm 14mm;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+}
+
+.report-header { border-bottom: 2px solid #e8641b; margin-bottom: 1rem; padding-bottom: .4rem; }
+.report-header h1 { font-size: 18pt; margin: 0 0 .2rem; font-weight: 600; }
+.report-meta { margin: 0; color: #555; font-size: 9pt; display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; }
+.report-footer { margin-top: 1.5rem; padding-top: .3rem; border-top: 1px solid #ccc; color: #888; font-size: 8pt; text-align: right; }
+
+.report-summary { color: #444; margin: 0 0 1rem; }
+.report-warning { padding: .4rem .6rem; background: #fff4e5; border-left: 3px solid #e8641b; }
+.report-error   { color: #b42318; }
+.report-sheet .muted { color: #6c757d; }
+
+.report-section { margin-top: 1.1rem; }
+.report-section h2,
+.report-box h2 {
+  font-size: 12pt;
+  font-weight: 600;
+  margin: 0 0 .5rem;
+  padding-bottom: .15rem;
+  border-bottom: 1px solid #ccc;
+  break-after: avoid;
+}
+.report-section h2 small { font-weight: normal; color: #6c757d; font-size: 9pt; }
+
+/* Einträge (Ahnentafel, Nachkommen): Nummer links, Daten rechts */
+.report-entries { display: flex; flex-direction: column; gap: .45rem; }
+.report-entry   { display: grid; grid-template-columns: 3.2rem 1fr; gap: .5rem; break-inside: avoid; }
+.report-num     { text-align: right; font-weight: 600; color: #a6400f; }
+.report-num-wide { min-width: 3.2rem; white-space: nowrap; }
+.report-entry:has(.report-num-wide) { grid-template-columns: auto 1fr; }
+.report-name    { font-weight: 600; }
+
+.report-facts { list-style: none; margin: .1rem 0 0; padding: 0; }
+.report-facts li { padding-left: 1.1rem; text-indent: -1.1rem; }
+.report-sym   { display: inline-block; min-width: .9rem; text-indent: 0; font-weight: 600; color: #555; }
+.report-union { margin: .15rem 0 0; padding-left: 1.1rem; text-indent: -1.1rem; }
+
+.report-legend { margin-top: 1.5rem; font-size: 8.5pt; color: #666; display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; }
+
+/* Familienblatt */
+.report-partners { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.report-box { border: 1px solid #ccc; border-radius: 4px; padding: .6rem .8rem; break-inside: avoid; }
+.report-parents { display: grid; grid-template-columns: auto 1fr; gap: .1rem .6rem; margin: .5rem 0 0; font-size: 9.5pt; }
+.report-parents dt { color: #6c757d; }
+.report-parents dd { margin: 0; }
+
+/* Tabellen */
+.report-table { width: 100%; border-collapse: collapse; }
+.report-table th,
+.report-table td { text-align: left; vertical-align: top; padding: .2rem .4rem; border-bottom: 1px solid #e3e3e3; }
+.report-table thead th { font-size: 9pt; color: #555; border-bottom: 1px solid #999; }
+.report-table tbody th { font-weight: 600; white-space: nowrap; width: 1%; }
+.report-table tr { break-inside: avoid; }
+.report-table thead { display: table-header-group; }   /* Kopfzeile auf jeder Druckseite */
+.report-list td, .report-list th { font-size: 9.5pt; }
+.report-list { table-layout: fixed; }
+.report-list-dated   th:nth-child(1) { width: 15%; }
+.report-list-dated   th:nth-child(2) { width: 32%; }
+.report-list-dated   th:nth-child(3) { width: 14%; }
+.report-list-grouped th:nth-child(1) { width: 32%; }
+.report-list-grouped th:nth-child(2) { width: 14%; }
+.report-list-grouped th:nth-child(3) { width: 15%; }
+.report-list-couple  th:nth-child(1) { width: 13%; }
+.report-list-couple  th:nth-child(2),
+.report-list-couple  th:nth-child(3) { width: 25%; }
+.report-list td { overflow-wrap: anywhere; }
+.report-children .report-facts { font-size: 9.5pt; }
+.report-detail { display: block; }
+.report-detail em { font-style: normal; color: #6c757d; }
+.nowrap { white-space: nowrap; }
+
+/* Personenblatt */
+.report-person-head { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
+.report-person-head > div { flex: 1; }
+.report-photo { max-width: 35mm; max-height: 45mm; object-fit: contain; border: 1px solid #ccc; }
+.report-notes { white-space: pre-wrap; margin: 0; }
+.report-sources { margin: 0; padding-left: 1.4rem; font-size: 9.5pt; }
+
+@media screen and (max-width: 220mm) {
+  .report-sheet { margin: 0; padding: 1rem; min-height: 0; box-shadow: none; }
+}
+
+@media print {
+  body.report-body { background: #fff; }
+  .no-print { display: none !important; }
+  .report-sheet { max-width: none; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+  .report-header { border-bottom-color: #999; }
+  a { color: inherit; text-decoration: none; }
+}

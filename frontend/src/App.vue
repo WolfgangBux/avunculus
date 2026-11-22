@@ -37,6 +37,7 @@ import UserAdminDialog from './components/UserAdminDialog.vue'
 import ChangeLogDialog from './components/ChangeLogDialog.vue'
 import CheckDialog from './components/CheckDialog.vue'
 import RelationshipDialog from './components/RelationshipDialog.vue'
+import ReportDialog from './components/ReportDialog.vue'
 import { openRelationship } from './composables/relationship.js'
 import UpdateDialog from './components/UpdateDialog.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -44,12 +45,12 @@ import { checkUpdates, updateAvailable } from './composables/updates.js'
 import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel, legalLinks } from './auth.js'
 import { useNotify } from './composables/feedback.js'
 import { useHashRoute } from './composables/hashRoute.js'
-import { useFileMenu, useUserMenu } from './composables/appMenus.js'
+import { useFileMenu, useUserMenu, useReportsMenu } from './composables/appMenus.js'
 import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, UpdateDialog, SettingsDialog },
+                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, ReportDialog, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -75,6 +76,15 @@ export default defineComponent({
           view.value === 'persons' ? editingPerson.value?.id : view.value === 'tree' ? treeRootId.value : null, startPersonId.value),
         relativesTree: p => openRelativesTree(p),
       },
+    })
+
+    // ── Berichte: vorbelegt mit der gerade gezeigten Person bzw. Familie ──
+    const reportsMenu      = ref(null)
+    const reportsMenuItems = useReportsMenu({
+      context: () => ({
+        person: view.value === 'persons' ? editingPerson.value?.id ?? treeRootId.value : treeRootId.value ?? startPersonId.value,
+        family: view.value === 'families' ? editingFamilyId.value : null,
+      }),
     })
 
     // ── Neuer Stammbaum aus den Verwandten einer Person ───
@@ -393,7 +403,7 @@ export default defineComponent({
       t, locale, setLocale, availableLocales,
       user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
       view, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
-      trees, currentTree, currentTreeId, showOpen, showNew, showImport, fileMenu, fileMenuItems,
+      trees, currentTree, currentTreeId, showOpen, showNew, showImport, fileMenu, fileMenuItems, reportsMenu, reportsMenuItems,
       loadTrees, openTree, onTreeDeleted,
       personRefresh, editingPerson, startEditPerson, onPersonSaved, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
       familyPerson, openFamily, openFamilyFor, closeFamily, onFamilyChanged,
@@ -424,6 +434,10 @@ export default defineComponent({
       {{ t('file.menu') }} <i class="pi pi-angle-down" />
     </button>
     <Menu id="file-menu" ref="fileMenu" :model="fileMenuItems" popup />
+    <button class="nav-tab nav-menu" aria-haspopup="true" aria-controls="reports-menu" :disabled="!currentTreeId" @click="reportsMenu.toggle($event)">
+      {{ t('reports.menu') }} <i class="pi pi-angle-down" />
+    </button>
+    <Menu id="reports-menu" ref="reportsMenu" :model="reportsMenuItems" popup />
     <span class="nav-divider" aria-hidden="true" />
     <button :class="['nav-tab', { active: view === 'tree' }]" @click="goTree">{{ t('nav.tree') }}</button>
     <button :class="['nav-tab', { active: view === 'persons' }]" @click="goPersons">{{ t('nav.persons') }}</button>
@@ -620,6 +634,7 @@ export default defineComponent({
 <ChangeLogDialog v-if="canEdit" />
 <CheckDialog v-if="canEdit" />
 <RelationshipDialog />
+<ReportDialog />
 <UpdateDialog v-if="isAdmin" />
 <TreeNewDialog v-model:visible="showNew" @created="openTree" />
 <RelativesTreeDialog v-model:visible="showRelatives" :person="relativesPerson" @open="tree => { loadTrees(); openTree(tree) }" />

@@ -10,6 +10,7 @@ import 'primeicons/primeicons.css'
 import './assets/main.css'
 
 import App from './App.vue'
+import { parseReportHash } from './composables/reports.js'
 
 // Aura-Theme mit dem Avunculus-Orange als Primärfarbe
 const AvunculusPreset = definePreset(Aura, {
@@ -36,7 +37,12 @@ const AvunculusPreset = definePreset(Aura, {
   },
 })
 
-createApp(App)
+// #/report/… ist die Druckansicht eines Berichts (eigener Tab, ohne App-Rahmen) – erst bei Bedarf geladen
+const report = parseReportHash()
+const root   = report ? import('./components/reports/ReportPage.vue').then(m => m.default) : Promise.resolve(App)
+if (report) document.body.classList.add('report-body')
+
+root.then(component => createApp(component)
   .use(PrimeVue, {
     theme: {
       preset: AvunculusPreset,
@@ -46,4 +52,4 @@ createApp(App)
   .use(ToastService)
   .use(ConfirmationService)
   .directive('tooltip', Tooltip)
-  .mount('#app')
+  .mount('#app'))

@@ -115,4 +115,10 @@ return [
     // ── Statistik ───────────────────────────────────────────────────────────────
     ['GET',    'statistics',                      StatisticsController::class, 'index',            $G],
     ['GET',    'statistics/map',                  StatisticsController::class, 'map',              $G],
+
+    // ── Berichte und Ausdrucke ──────────────────────────────────────────────────
+    ['GET',    'reports/ancestors',               ReportController::class,     'ancestors',        $G],
+    ['GET',    'reports/descendants',             ReportController::class,     'descendants',      $G],
+    ['GET',    'reports/family/{id}',             ReportController::class,     'family',           $G],
+    ['GET',    'reports/list',                    ReportController::class,     'list',             $G],
 ];
