@@ -13,17 +13,25 @@ declare(strict_types=1);
  */
 final class SurnameController extends TreeScopedController
 {
-    private const CLOUD = 60;   // so viele Namen in der Wolke
+    private const CLOUD     = 60;    // so viele Namen in der Wolke (Standard)
+    private const CLOUD_MAX = 300;   // höchstens (große Wolke in der Auswertung, ?cloud=N)
 
     private const BRANCH_FIELDS = ['id' => 1, 'sex' => 1, 'restriction' => 1, 'given_name' => 1, 'surname' => 1, 'surname_prefix' => 1,
                                    'name_prefix' => 1, 'nickname' => 1, 'alt_surname' => 1, 'birth_date' => 1, 'death_date' => 1, 'private' => 1];
 
-    /** GET surnames – Buchstaben, Personen ohne Nachnamen, Wolke; GET surnames?letter=X – nur die Namen dieses Buchstabens */
+    /**
+     * GET surnames – Buchstaben, Personen ohne Nachnamen, Wolke; GET surnames?letter=X – nur die Namen dieses Buchstabens;
+     * GET surnames?cloud=N – nur die Wolke mit den N häufigsten Namen
+     */
     public function index(): void
     {
         $letter = trim((string) ($_GET['letter'] ?? ''));
         if ($letter !== '') {
             $this->json(['surnames' => $this->byLetter(self::initial($letter))]);
+            return;
+        }
+        if (isset($_GET['cloud'])) {
+            $this->json(['cloud' => $this->cloud(max(1, min(self::CLOUD_MAX, (int) $_GET['cloud'])))]);
             return;
         }
         $priv = Privacy::personSql();
@@ -45,11 +53,7 @@ final class SurnameController extends TreeScopedController
             WHERE p.tree_id = ?$priv AND NOT EXISTS (
                 SELECT 1 FROM person_names n WHERE n.person_id = p.id AND TRIM(n.surname) <> '')")[0]['n'];
 
-        $cloud = array_map(fn($r) => ['surname' => $r['surname'], 'count' => (int) $r['n']], $this->rows("
-            SELECT TRIM(n.surname) AS surname, COUNT(DISTINCT n.person_id) AS n
-            FROM person_names n JOIN persons p ON p.id = n.person_id
-            WHERE p.tree_id = ? AND TRIM(n.surname) <> ''$priv
-            GROUP BY TRIM(n.surname) ORDER BY n DESC, surname LIMIT " . self::CLOUD));
+        $cloud = $this->cloud(self::CLOUD);
         usort($cloud, fn($a, $b) => strcoll($a['surname'], $b['surname']) ?: strcmp($a['surname'], $b['surname']));
 
         $this->json([
@@ -57,6 +61,16 @@ final class SurnameController extends TreeScopedController
             'none'     => (int) $none,
             'cloud'    => $cloud,
         ]);
+    }
+
+    /** Die $limit häufigsten Nachnamen, häufigste zuerst */
+    private function cloud(int $limit): array
+    {
+        return array_map(fn($r) => ['surname' => $r['surname'], 'count' => (int) $r['n']], $this->rows("
+            SELECT TRIM(n.surname) AS surname, COUNT(DISTINCT n.person_id) AS n
+            FROM person_names n JOIN persons p ON p.id = n.person_id
+            WHERE p.tree_id = ? AND TRIM(n.surname) <> ''" . Privacy::personSql() . "
+            GROUP BY TRIM(n.surname) ORDER BY n DESC, surname LIMIT $limit"));
     }
 
     /** Namen mit diesem Anfangsbuchstaben ('#' = kein Buchstabe), alphabetisch, mit Anzahl Personen */

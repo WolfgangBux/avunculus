@@ -1939,6 +1939,18 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
 .stats-grid > .card { margin: 0; min-width: 0; }
 .stats-wide { grid-column: 1 / -1; }
 
+/* Namenswolke */
+.cloud-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin-bottom: .75rem; }
+.cloud-width { display: inline-flex; align-items: center; gap: .7rem; font-size: .85rem; }
+.cloud-slider { width: 9rem; margin: 0 .5rem; }   /* Griff ragt über die Enden hinaus */
+.cloud-width-value { min-width: 3.2rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.cloud-toggle { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; cursor: pointer; }
+.cloud-save { display: inline-flex; flex-wrap: wrap; gap: .5rem; margin-left: auto; }
+.cloud-svg { display: block; width: 100%; height: auto; max-height: 80vh; transition: opacity .15s; }
+.cloud-svg.cloud-loading { opacity: .5; }
+.cloud-word { cursor: pointer; transition: opacity .12s; }
+.cloud-word:hover, .cloud-word:focus-visible { opacity: .6; outline: none; }
+
 /* Ranglisten */
 .rank-list { list-style: none; display: flex; flex-direction: column; gap: .3rem; }
 .rank-list li {

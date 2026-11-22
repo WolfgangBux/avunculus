@@ -6,9 +6,11 @@ import { t, locale } from '../i18n/index.js'
 import RankList from './RankList.vue'
 import ColumnChart from './ColumnChart.vue'
 import PlaceMap from './PlaceMap.vue'
+import SurnameCloud from './SurnameCloud.vue'
 
 /** Statistik des aktuellen Stammbaums – alles aus einem Aufruf (GET /statistics) */
-const emit = defineEmits(['open-person', 'open-place'])
+defineProps({ treeName: { type: String, default: '' } })
+const emit = defineEmits(['open-person', 'open-place', 'open-surname'])
 
 const stats   = ref(null)
 const loading = ref(false)
@@ -99,6 +101,13 @@ const century = c => t('stats.century', { n: c / 100 + 1, from: c, to: c + 99 })
           <h2 class="card-title">{{ t('stats.map.title') }}</h2>
           <p class="stats-sub">{{ t('stats.map.hint') }}</p>
           <PlaceMap @open-place="id => emit('open-place', id)" />
+        </section>
+
+        <!-- Namenswolke (als Bild zu speichern) -->
+        <section class="card stats-wide">
+          <h2 class="card-title">{{ t('stats.cloud.title') }}</h2>
+          <p class="stats-sub">{{ t('stats.cloud.hint') }}</p>
+          <SurnameCloud :tree-name="treeName" @open-surname="s => emit('open-surname', s)" />
         </section>
 
         <!-- Geschlecht -->

@@ -30,6 +30,7 @@ import PlaceForm   from './components/PlaceForm.vue'
 import MediaList   from './components/MediaList.vue'
 import MediaForm   from './components/MediaForm.vue'
 import StatisticsView from './components/StatisticsView.vue'
+import { showSurnameInList } from './composables/personListNav.js'
 import RelativesTreeDialog from './components/RelativesTreeDialog.vue'
 import { fetchMedia } from './api/media.js'
 import LoginDialog     from './components/LoginDialog.vue'
@@ -403,6 +404,11 @@ export default defineComponent({
       view.value = 'sources'
       await startEditSource({ id })
     }
+    // Namenswolke (Auswertung): Personenliste auf diesen Nachnamen stellen
+    function openSurname(surname) {
+      showSurnameInList(surname)
+      view.value = 'persons'
+    }
     // Treffer der Suche (Kopfzeile) in seinem Tab öffnen
     async function openFromSearch({ type, id }) {
       if (type === 'person') return openPersonFromMedia(id)
@@ -473,7 +479,7 @@ export default defineComponent({
       repoRefresh, editingRepository, startEditRepository, onRepositorySaved, onRepositoryDeleted,
       openRepositoryFromSource, openSourceFromRepository,
       placeRefresh, editingPlace, selectPlace, openPlaceFromStats, onPlaceSaved, onPlaceChanged, onPlaceDeleted,
-      mediaRefresh, editingMedia, selectMedia, onMediaChanged, onMediaDeleted, openPersonFromMedia, openSourceFromMedia,
+      mediaRefresh, editingMedia, selectMedia, onMediaChanged, onMediaDeleted, openPersonFromMedia, openSourceFromMedia, openSurname,
     }
   },
 })
@@ -654,7 +660,8 @@ export default defineComponent({
     </div>
   </div>
 
-  <StatisticsView v-if="view === 'statistics'" @open-person="openPersonFromMedia" @open-place="openPlaceFromStats" />
+  <StatisticsView v-if="view === 'statistics'" :tree-name="currentTree?.name ?? ''"
+    @open-person="openPersonFromMedia" @open-place="openPlaceFromStats" @open-surname="openSurname" />
 
   <div v-if="view === 'media'" class="workspace workspace-media">
     <MediaList :refresh="mediaRefresh" :selected-id="editingMedia?.id ?? null" @select="selectMedia"

@@ -1,5 +1,5 @@
 <script>
-import { ref, reactive, computed, watch, onMounted, nextTick, defineComponent } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, defineComponent } from 'vue'
 import { searchPersons, deletePerson } from '../api/persons.js'
 import { nameLabel as primaryNameLabel, lifeSpan, sexClass } from '../format.js'
 import { t } from '../i18n/index.js'
@@ -8,6 +8,7 @@ import { usePagedSearch } from '../composables/pagedSearch.js'
 import { mediaThumbUrl } from '../api/media.js'
 import { canEdit } from '../auth.js'
 import { currentTreeId } from '../trees.js'
+import { personListNav as nav } from '../composables/personListNav.js'
 import SurnameIndex from './SurnameIndex.vue'
 import SurnameBranches from './SurnameBranches.vue'
 import SelectButton from 'openvue/selectbutton'
@@ -21,9 +22,6 @@ const PAGE = 100
 /** Ab so vielen Personen beginnt die Liste (ohne gemerkte Wahl) mit der Nachnamen-Übersicht */
 const SURNAMES_FROM = 1000
 const MODE_KEY = 'avunculus.personListMode'
-
-// Ansicht der Liste je Baum – bleibt beim Wechsel in andere Tabs erhalten (die Liste wird dabei neu aufgebaut)
-const nav = reactive({ tree: null, mode: null, letter: null, surname: null, show: 'persons' })
 
 export default defineComponent({
   components: { IconField, InputIcon, InputText, Button, SelectButton, SurnameIndex, SurnameBranches },
