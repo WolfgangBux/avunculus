@@ -106,6 +106,9 @@ return [
     // ── Änderungsprotokoll ──────────────────────────────────────────────────────
     ['GET',    'changes',                         ChangeController::class,     'index',            $E],
 
+    // ── Fehlersuche (unplausible Lebensdaten) ───────────────────────────────────
+    ['GET',    'checks',                          CheckController::class,      'index',            $E],
+
     // ── Statistik ───────────────────────────────────────────────────────────────
     ['GET',    'statistics',                      StatisticsController::class, 'index',            $G],
     ['GET',    'statistics/map',                  StatisticsController::class, 'map',              $G],

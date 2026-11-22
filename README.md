@@ -23,6 +23,7 @@ Avunculus is a web application for recording, researching and sharing family his
 - **Statistics** with charts and a map.
 - **Users and privacy**: administrators and editors. Visitors who are not logged in only see trees that have been published, with living people hidden.
 - **Change log**: who changed what and when, down to individual fields ("Birth – date: 1788 → ABT 1788").
+- **Error search**: finds implausible dates such as a mother who is too young or too old, a child born after a parent's death, death before birth or a marriage after death. Approximate dates (about, before, between) never cause false alarms.
 - User interface in **English and German**.
 
 This software is licensed under the GNU Affero General Public License v3 or later. See [LICENSE](LICENSE) for the full text.

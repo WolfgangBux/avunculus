@@ -63,6 +63,61 @@ final class GedcomDate
         return self::isValid($fixed) ? $fixed : $s;
     }
 
+    /** Spielraum bei ungefähren Angaben (ABT/CAL/EST) in Jahren */
+    public const APPROX_YEARS = 2;
+
+    /**
+     * Frühest- und spätestmöglicher Zeitpunkt einer Datumsangabe als Jahreszahl mit Bruchteil
+     * („MAR 1800“ → [1800.17, 1800.25]), offene Seiten (BEF/AFT) als ±INF.
+     * null = nicht auswertbar (kein Jahr, Jahr vor 500 = vermutlich Tippfehler, freier Text).
+     * @return array{0: float, 1: float}|null
+     */
+    public static function range(?string $raw): ?array
+    {
+        $s = self::normalize((string) $raw);
+        $s = trim(preg_replace('/@#D[A-Z ]+@\s*|\(.*?\)/', '', $s));   // Kalender-Kennung, Freitext in Klammern
+        if ($s === '') return null;
+
+        if (preg_match('/^(?:BET|FROM) (.+?) (?:AND|TO) (.+)$/', $s, $m)) {
+            $a = self::point($m[1]); $b = self::point($m[2]);
+            return $a && $b ? [min($a[0], $b[0]), max($a[1], $b[1])] : null;
+        }
+        if (preg_match('/^(ABT|EST|CAL|BEF|AFT|FROM|TO|INT) (.+)$/', $s, $m)) {
+            if (!($p = self::point($m[2]))) return null;
+            return match ($m[1]) {
+                'ABT', 'EST', 'CAL' => [$p[0] - self::APPROX_YEARS, $p[1] + self::APPROX_YEARS],
+                'BEF', 'TO'         => [-INF, $p[1]],
+                'AFT'               => [$p[0], INF],
+                default             => $p,   // FROM (Beginn), INT (gedeutet)
+            };
+        }
+        return self::point($s);
+    }
+
+    /** Einfache Angabe („20 JUN 1879“, „JUN 1879“, „1879“, „20.6.1879“, „1700/01“) → [Beginn, Ende] */
+    private static function point(string $s): ?array
+    {
+        $mon = implode('|', self::MONTHS);
+        $d = $m = 0;
+        if (preg_match("/^(?:(\d{1,2}) )?($mon) (\d{1,4})(?:\/(\d{1,2}))?$/", $s, $x)) {
+            [$d, $m, $y, $dual] = [(int) $x[1], array_search($x[2], self::MONTHS, true) + 1, (int) $x[3], $x[4] ?? ''];
+        } elseif (preg_match('/^(\d{1,2})[ .\/](\d{1,2})[ .\/](\d{3,4})$/', $s, $x)) {
+            [$d, $m, $y, $dual] = [(int) $x[1], (int) $x[2], (int) $x[3], ''];
+        } elseif (preg_match('/^(\d{1,4})(?:\/(\d{1,2}))?$/', $s, $x)) {
+            [$y, $dual] = [(int) $x[1], $x[2] ?? ''];
+        } else {
+            return null;
+        }
+        if ($y < 500 || $m > 12 || $d > 31) return null;
+        $extra = $dual !== '' ? 1 : 0;   // Doppeljahr 1700/01: alter oder neuer Jahresanfang
+        if (!$m) return [(float) $y, (float) ($y + 1 + $extra)];
+        $before = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];   // Tage vor Monatsbeginn
+        $start  = $y + $before[$m - 1] / 365;
+        if (!$d) return [$start, $y + $before[$m] / 365 + $extra];
+        $start += min($d - 1, $before[$m] - $before[$m - 1] - 1) / 365;
+        return [$start, $start + 1 / 365 + $extra];
+    }
+
     public static function extractYear(string $raw): ?int
     {
         if ($raw === '') return null;

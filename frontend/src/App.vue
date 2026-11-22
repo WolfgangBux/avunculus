@@ -35,6 +35,7 @@ import LoginDialog     from './components/LoginDialog.vue'
 import PasswordDialog  from './components/PasswordDialog.vue'
 import UserAdminDialog from './components/UserAdminDialog.vue'
 import ChangeLogDialog from './components/ChangeLogDialog.vue'
+import CheckDialog from './components/CheckDialog.vue'
 import UpdateDialog from './components/UpdateDialog.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { checkUpdates, updateAvailable } from './composables/updates.js'
@@ -46,7 +47,7 @@ import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, UpdateDialog, SettingsDialog },
+                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -625,6 +626,7 @@ export default defineComponent({
 <UserAdminDialog v-if="isAdmin" v-model:visible="showUsers" />
 <SettingsDialog v-if="isAdmin" v-model:visible="showSettings" />
 <ChangeLogDialog v-if="canEdit" />
+<CheckDialog v-if="canEdit" />
 <UpdateDialog v-if="isAdmin" />
 <TreeNewDialog v-model:visible="showNew" @created="openTree" />
 <RelativesTreeDialog v-model:visible="showRelatives" :person="relativesPerson" @open="tree => { loadTrees(); openTree(tree) }" />

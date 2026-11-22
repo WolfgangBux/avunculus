@@ -5,9 +5,10 @@ import { updateStatus, updateAvailable, showUpdate } from './updates.js'
 import { currentTreeId } from '../trees.js'
 import { gedcomExportUrl } from '../api/trees.js'
 import { openChangeLog } from './changeLog.js'
+import { showChecks } from './checks.js'
 
 /**
- * Datei-Menü. Besucher: nur Öffnen; Bearbeiter: + Export, Änderungsprotokoll; Admin: + Neu, Import, Verwandten-Baum.
+ * Datei-Menü. Besucher: nur Öffnen; Bearbeiter: + Export, Änderungsprotokoll, Fehlersuche; Admin: + Neu, Import, Verwandten-Baum.
  *   currentTree:   Ref des geöffneten Baums (Medienanzahl für „Export mit Medien“)
  *   relativesFrom: Getter der Person, aus deren Verwandten ein neuer Baum werden kann (oder null)
  *   on:            { open, new, import, relativesTree(person) }
@@ -25,6 +26,8 @@ export function useFileMenu({ currentTree, relativesFrom, on }) {
     { separator: true, visible: canEdit.value },
     { label: t('changes.menu'),     icon: 'pi pi-history',     visible: canEdit.value, disabled: !currentTreeId.value,
       command: () => openChangeLog() },
+    { label: t('checks.menu'),      icon: 'pi pi-exclamation-triangle', visible: canEdit.value, disabled: !currentTreeId.value,
+      command: () => { showChecks.value = true } },
     { label: t('relativesTree.menu'), icon: 'pi pi-sitemap', visible: isAdmin.value,
       disabled: !relativesFrom()?.id, command: () => on.relativesTree(relativesFrom()) },
   ])
