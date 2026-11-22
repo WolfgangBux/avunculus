@@ -3,13 +3,13 @@ import { currentTreeId } from '../trees.js'
 import { locale } from '../i18n/index.js'
 
 /** Berichte, die eine Person bzw. Familie brauchen, und die Listen */
-export const PERSON_REPORTS = ['ancestors', 'descendants', 'person']
+export const PERSON_REPORTS = ['ancestors', 'pedigree', 'descendants', 'person']
 export const FAMILY_REPORTS = ['family']
-export const LIST_REPORTS   = ['births', 'baptisms', 'deaths', 'marriages', 'occupations', 'burials']
+export const LIST_REPORTS   = ['familybook', 'births', 'baptisms', 'deaths', 'marriages', 'occupations', 'burials']
 export const REPORT_KINDS   = [...PERSON_REPORTS, ...FAMILY_REPORTS, ...LIST_REPORTS]
 
 /** Generationen: Standard und Höchstwert (wie im Backend, ReportController) */
-export const GENERATIONS = { ancestors: { def: 5, max: 12 }, descendants: { def: 4, max: 10 } }
+export const GENERATIONS = { ancestors: { def: 5, max: 12 }, pedigree: { def: 5, max: 6 }, descendants: { def: 4, max: 10 } }
 
 /** Berichtsdialog für die ganze App (in App.vue eingebunden) */
 export const showReports = ref(false)

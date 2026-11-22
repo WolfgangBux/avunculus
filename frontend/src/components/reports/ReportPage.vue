@@ -11,6 +11,8 @@ import DescendantReport from './DescendantReport.vue'
 import FamilySheet      from './FamilySheet.vue'
 import PersonSheet      from './PersonSheet.vue'
 import EventList        from './EventList.vue'
+import PedigreeChart    from './PedigreeChart.vue'
+import FamilyBook       from './FamilyBook.vue'
 import './report.css'
 
 /**
@@ -24,7 +26,8 @@ if (p.lang) setLocale(p.lang)
 // Baum nur für diesen Tab – nicht als „zuletzt geöffnet“ merken (sonst wechselt die App im anderen Tab)
 currentTreeId.value = Number(p.tree) || null
 
-const COMPONENTS = { ancestors: AncestorReport, descendants: DescendantReport, family: FamilySheet, person: PersonSheet }
+const COMPONENTS = { ancestors: AncestorReport, pedigree: PedigreeChart, descendants: DescendantReport, family: FamilySheet,
+                     person: PersonSheet, familybook: FamilyBook }
 const component  = computed(() => COMPONENTS[report?.kind] ?? EventList)
 
 const treeName = ref('')

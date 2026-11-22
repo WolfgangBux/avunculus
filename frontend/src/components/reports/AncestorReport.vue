@@ -1,7 +1,7 @@
 <script setup>
 import { computed, watch } from 'vue'
 import { fetchAncestorReport } from '../../api/reports.js'
-import { useReportData, nameLabel } from './reportFormat.js'
+import { useReportData, nameLabel, roman } from './reportFormat.js'
 import FactList from './FactList.vue'
 import SymbolLegend from './SymbolLegend.vue'
 import { t } from '../../i18n/index.js'
@@ -30,10 +30,12 @@ const generations = computed(() => {
 /** Ahnenschwund: Anzahl verschiedener Personen gegenüber Einträgen */
 const implex = computed(() => (data.value?.entries ?? []).filter(e => e.same_as).length)
 
+/** „III. Generation – Großeltern“ (römisch wie in gedruckten Ahnenlisten) */
 function genTitle(gen) {
-  const key = 'reports.generationNames.' + gen
+  const key  = 'reports.generationNames.' + gen
   const name = t(key)
-  return name !== key ? t('reports.generation', { n: gen }) + ' – ' + name : t('reports.generation', { n: gen })
+  const head = t('reports.generation', { n: roman(gen) })
+  return name !== key ? head + ' – ' + name : head
 }
 </script>
 

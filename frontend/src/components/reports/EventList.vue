@@ -1,7 +1,7 @@
 <script setup>
 import { computed, watch } from 'vue'
 import { fetchListReport } from '../../api/reports.js'
-import { useReportData, nameLabel, lifeSpan, displayDate } from './reportFormat.js'
+import { useReportData, nameLabel, lifeSpan, displayDate, filterText } from './reportFormat.js'
 import { t } from '../../i18n/index.js'
 
 /**
@@ -17,17 +17,8 @@ const emit = defineEmits(['title'])
 const { data, error } = useReportData(() => fetchListReport(props.kind, props.params))
 const person = id => data.value?.persons?.[id]
 
-/** Filter als Untertitel: „1800–1850 · Ort: Ingolstadt“ */
-const filterText = computed(() => {
-  const { from, to, place } = props.params
-  const parts = []
-  if (from && to) parts.push(`${from}–${to}`)
-  else if (from)  parts.push(t('reports.fromYear', { y: from }))
-  else if (to)    parts.push(t('reports.toYear', { y: to }))
-  if (place) parts.push(t('reports.placeFilter', { place }))
-  return parts.join(' · ')
-})
-watch(data, d => d && emit('title', t('reports.kinds.' + props.kind) + (filterText.value ? ' (' + filterText.value + ')' : '')))
+const filter = computed(() => filterText(props.params))
+watch(data, d => d && emit('title', t('reports.kinds.' + props.kind) + (filter.value ? ' (' + filter.value + ')' : '')))
 
 const grouped = computed(() => ['occupations', 'burials'].includes(props.kind))
 /** Spaltenaufteilung (feste Breiten, damit die Tabellen der Gruppen untereinander fluchten) */

@@ -21,7 +21,7 @@ Avunculus is a web application for recording, researching and sharing family his
 - **GEDCOM export** (5.5.1, UTF-8), optionally as a ZIP archive including all media.
 - **Relatives tree**: create a new tree from all blood relatives of a person and their partners.
 - **Statistics** with charts and a map.
-- **Reports for printing or PDF**: ancestor table (Ahnentafel), descendant report, family group sheet, individual sheet, and lists of births, baptisms, deaths, marriages, occupations and cemeteries, filtered by years and place. Each report opens as a print view in a new tab; the browser saves it as a PDF.
+- **Reports for printing or PDF**: ancestor list with Kekulé numbers (Ahnenliste), pedigree chart, descendant report, family group sheet, individual sheet, a family book in the style of a German *Ortsfamilienbuch* (numbered families with cross-references and an index of names), and lists of births, baptisms, deaths, marriages, occupations and cemeteries. Family book and lists can be limited to years and a place, the family book also to a surname. Each report opens as a print view in a new tab; the browser saves it as a PDF.
 - **Users and privacy**: administrators and editors. Visitors who are not logged in only see trees that have been published, with living people hidden.
 - **Change log**: who changed what and when, down to individual fields ("Birth – date: 1788 → ABT 1788").
 - **Relationship calculator**: names how two people are related (great-uncle, second cousin once removed, half-sister, brother-in-law, stepmother …) and draws the path through their closest common ancestors – in German with the usual terms (Onkel 2. Grades, Ururgroßvater). Pedigree collapse shows every way they are related.

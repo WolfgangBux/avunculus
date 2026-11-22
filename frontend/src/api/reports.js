@@ -10,3 +10,5 @@ export const fetchDescendantReport = (person, generations) => request('GET', `/r
 export const fetchFamilyReport     = id => request('GET', `/reports/family/${id}`)
 /** Liste: { kind, rows, truncated, limit, persons } – kind: births, baptisms, deaths, burials, marriages, occupations */
 export const fetchListReport       = (kind, { from, to, place } = {}) => request('GET', `/reports/list?${query({ kind, from, to, place })}`)
+/** Familienbuch: { families: [{ id, partners, events, children }], origins, unions, persons, total, truncated, limit } */
+export const fetchFamilyBook       = ({ from, to, place, surname } = {}) => request('GET', `/reports/familybook?${query({ from, to, place, surname })}`)

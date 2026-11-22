@@ -28,6 +28,7 @@ const generations = ref(5)
 const from        = ref('')
 const to          = ref('')
 const place       = ref('')
+const surname     = ref('')
 
 const kindOptions = computed(() => REPORT_KINDS.map(k => ({ value: k, label: t('reports.kinds.' + k), group: groupOf(k) })))
 const groupOf     = k => PERSON_REPORTS.includes(k) || FAMILY_REPORTS.includes(k) ? 'sheets' : 'lists'
@@ -35,6 +36,7 @@ const kindGroups  = computed(() => ['sheets', 'lists'].map(g => ({ label: t('rep
 
 const needsPerson = computed(() => PERSON_REPORTS.includes(kind.value) || FAMILY_REPORTS.includes(kind.value))
 const isFamily    = computed(() => FAMILY_REPORTS.includes(kind.value))
+const isBook      = computed(() => kind.value === 'familybook')
 const gen         = computed(() => GENERATIONS[kind.value] ?? null)
 const genOptions  = computed(() => gen.value ? Array.from({ length: gen.value.max - 1 }, (_, i) => i + 2) : [])
 
@@ -94,7 +96,8 @@ function open() {
   if (!canOpen.value) return
   const params = isFamily.value ? { family: family.value }
                : needsPerson.value ? { person: person.value, gen: gen.value ? generations.value : '' }
-               : { from: year(from.value), to: year(to.value), place: place.value.trim() }
+               : { from: year(from.value), to: year(to.value), place: place.value.trim(),
+                   surname: isBook.value ? surname.value.trim() : '' }
   window.open(reportUrl(kind.value, params), '_blank')
 }
 </script>
@@ -138,19 +141,28 @@ function open() {
       <div class="form-row">
         <div class="form-group">
           <label for="report-from">{{ t('reports.yearFrom') }}</label>
-          <InputText id="report-from" v-model="from" inputmode="numeric" placeholder="1700" />
+          <InputText id="report-from" fluid v-model="from" inputmode="numeric" placeholder="1700" />
         </div>
         <div class="form-group">
           <label for="report-to">{{ t('reports.yearTo') }}</label>
-          <InputText id="report-to" v-model="to" inputmode="numeric" placeholder="1900" />
+          <InputText id="report-to" fluid v-model="to" inputmode="numeric" placeholder="1900" />
         </div>
       </div>
       <div class="form-row report-form-row">
         <div class="form-group">
           <label for="report-place">{{ t('reports.placeLabel') }}</label>
-          <InputText id="report-place" v-model="place" :placeholder="t('reports.placePlaceholder')" @keydown.enter="open" />
+          <InputText id="report-place" fluid v-model="place" :placeholder="t('reports.placePlaceholder')" @keydown.enter="open" />
         </div>
       </div>
+      <template v-if="isBook">
+        <div class="form-row report-form-row">
+          <div class="form-group">
+            <label for="report-surname">{{ t('reports.surnameLabel') }}</label>
+            <InputText id="report-surname" fluid v-model="surname" :placeholder="t('reports.surnamePlaceholder')" @keydown.enter="open" />
+          </div>
+        </div>
+        <p class="muted report-hint">{{ t('reports.bookHint') }}</p>
+      </template>
     </template>
 
     <template #footer>
@@ -162,4 +174,5 @@ function open() {
 
 <style scoped>
 .report-form-row { grid-template-columns: 1fr; }
+.report-hint { font-size: .85rem; margin: .25rem 0 0; }
 </style>

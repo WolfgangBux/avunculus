@@ -69,11 +69,13 @@ export function useReportsMenu({ context }) {
   const item = (kind, icon) => ({ label: t('reports.kinds.' + kind) + '…', icon, disabled: !currentTreeId.value,
                                   command: () => openReports(kind, context()) })
   return computed(() => [
-    item('ancestors',   'pi pi-sitemap'),
+    item('ancestors',   'pi pi-list'),
+    item('pedigree',    'pi pi-sitemap'),
     item('descendants', 'pi pi-share-alt'),
     item('family',      'pi pi-users'),
     item('person',      'pi pi-id-card'),
     { separator: true },
+    item('familybook',  'pi pi-book'),
     item('births',      'pi pi-star'),
     item('baptisms',    'pi pi-sun'),
     item('marriages',   'pi pi-heart'),

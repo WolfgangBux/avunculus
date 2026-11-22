@@ -16,6 +16,7 @@ class ReportController extends TreeScopedController
     private const DESCENDANT_LIMIT  = 3000;
     private const MAX_ANCESTOR_GENS = 12;
     private const MAX_DESC_GENS     = 10;
+    private const BOOK_LIMIT        = 1500;
 
     // GET /api/reports/ancestors?person=&generations=
     // Ahnentafel nach Kekule: 1 = Person, 2n = Vater, 2n+1 = Mutter von n.
@@ -140,25 +141,8 @@ class ReportController extends TreeScopedController
             array_push($ids, ...array_filter($fam['parents']));
         }
         // Partner der Kinder (mit Heirat)
-        $spouses = [];
-        if ($m['children']) {
-            $in   = implode(',', array_fill(0, count($m['children']), '?'));
-            $stmt = $this->db->prepare("
-                SELECT a.person_id AS child, a.family_id, b.person_id AS spouse
-                FROM family_members a JOIN families f ON f.id = a.family_id
-                LEFT JOIN family_members b ON b.family_id = a.family_id AND b.role <> 'CHIL' AND b.person_id <> a.person_id
-                WHERE f.tree_id = ? AND a.role <> 'CHIL' AND a.person_id IN ($in)
-                ORDER BY a.person_id, a.family_id
-            ");
-            $stmt->execute([$this->treeId, ...$m['children']]);
-            $rows = $stmt->fetchAll();
-            $marr = $this->marriages(array_map(fn($r) => (int) $r['family_id'], $rows));
-            foreach ($rows as $r) {
-                $spouse = $r['spouse'] !== null ? (int) $r['spouse'] : null;
-                $spouses[(int) $r['child']][] = ['spouse_id' => $spouse, 'marriage' => $marr[(int) $r['family_id']] ?? null];
-                if ($spouse) $ids[] = $spouse;
-            }
-        }
+        $spouses = $this->unionsOf($m['children']);
+        foreach ($spouses as $list) foreach ($list as $u) if ($u['spouse_id']) $ids[] = $u['spouse_id'];
 
         $this->json([
             'id'       => $id,
@@ -166,7 +150,7 @@ class ReportController extends TreeScopedController
             'children' => array_map(fn($c) => ['person_id' => $c, 'pedigree' => $m['pedigree'][$c] ?? null], $m['children']),
             'events'   => $events,
             'parents'  => (object) $parents,
-            'spouses'  => (object) array_map([$this, 'byMarriage'], $spouses),
+            'spouses'  => (object) $spouses,
             'persons'  => $this->facts($ids),
         ]);
     }
@@ -245,7 +229,174 @@ class ReportController extends TreeScopedController
         ]);
     }
 
+    // GET /api/reports/familybook?from=&to=&place=&surname=
+    // Familienbuch: jede Familie ein Block mit Nummer; Herkunft der Partner und Familien der Kinder als Verweise.
+    // Ort: Familienereignis oder Geburt/Taufe eines Kindes dort. Jahr: Heirat, ersatzweise Geburt des ersten Kindes.
+    public function familyBook(): void
+    {
+        $from    = (int) ($_GET['from'] ?? 0) ?: null;
+        $to      = (int) ($_GET['to'] ?? 0) ?: null;
+        $place   = trim((string) ($_GET['place'] ?? ''));
+        $surname = trim((string) ($_GET['surname'] ?? ''));
+        $like    = fn(string $v) => '%' . addcslashes($v, '%_\\') . '%';
+
+        $where  = '';
+        $params = [$this->treeId];
+        if ($place !== '') {
+            $where .= " AND (EXISTS (SELECT 1 FROM family_events e JOIN places pl ON pl.id = e.place_id
+                                     WHERE e.family_id = f.id AND pl.full_name LIKE ?)
+                          OR EXISTS (SELECT 1 FROM family_members c JOIN person_events e ON e.person_id = c.person_id
+                                     JOIN places pl ON pl.id = e.place_id
+                                     WHERE c.family_id = f.id AND c.role = 'CHIL' AND e.event_type IN ('BIRT', 'CHR', 'BAPM')
+                                       AND pl.full_name LIKE ?))";
+            array_push($params, $like($place), $like($place));
+        }
+        if ($surname !== '') {
+            $where .= " AND EXISTS (SELECT 1 FROM family_members m JOIN person_names n ON n.person_id = m.person_id
+                                    WHERE m.family_id = f.id AND m.role <> 'CHIL' AND n.surname LIKE ?)";
+            $params[] = $like($surname);
+        }
+        $stmt = $this->db->prepare("SELECT f.id FROM families f WHERE f.tree_id = ? $where" . Privacy::familySql('f.id') . ' ORDER BY f.id');
+        $stmt->execute($params);
+        $candidates = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+
+        // Reihenfolge: Familienname, Vorname des Mannes (sonst der Frau), dann Jahr – erst nur Schlüssel, chunkweise
+        $order = [];
+        foreach (array_chunk($candidates, 1000) as $chunk) {
+            $members = $this->members($chunk);
+            $marr    = $this->marriages($chunk);
+            $heads   = [];
+            $firstChild = [];
+            foreach ($chunk as $fid) {
+                $m = $members[$fid] ?? null;
+                $heads[$fid] = $m ? ($m['parents'][0] ?? $m['parents'][1] ?? $m['partners'][0] ?? null) : null;
+                if (!GedcomDate::sortKey($marr[$fid]['date'] ?? null) && !empty($m['children'])) $firstChild[$fid] = $m['children'][0];
+            }
+            $names  = $this->sortNames(array_filter($heads));
+            $births = $this->birthKeys(array_values($firstChild));
+            foreach ($chunk as $fid) {
+                $key  = GedcomDate::sortKey($marr[$fid]['date'] ?? null)
+                     ?? (isset($firstChild[$fid]) ? ($births[$firstChild[$fid]] ?? null) : null);
+                $year = $key !== null ? intdiv($key, 100000) : null;
+                if (($from || $to) && ($year === null || ($from && $year < $from) || ($to && $year > $to))) continue;
+                [$sur, $given] = $names[$heads[$fid]] ?? ['', ''];
+                $order[] = [$sur === '' ? 1 : 0, $sur, $given, $key ?? PHP_INT_MAX, $fid];
+            }
+        }
+        usort($order, fn($a, $b) => $a <=> $b);
+        $total     = count($order);
+        $truncated = $total > self::BOOK_LIMIT;
+        $ids       = array_column(array_slice($order, 0, self::BOOK_LIMIT), 4);
+        unset($order, $candidates);
+
+        $members = $this->members($ids);
+        $events  = [];
+        if ($ids) {
+            $in   = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $this->db->prepare("
+                SELECT e.family_id, e.event_type, e.event_date, pl.full_name AS place, e.event_value, e.event_descriptor
+                FROM family_events e LEFT JOIN places pl ON pl.id = e.place_id
+                WHERE e.family_id IN ($in) ORDER BY e.family_id, e.sort_order, e.id
+            ");
+            $stmt->execute($ids);
+            foreach ($stmt->fetchAll() as $r) {
+                $fid = (int) $r['family_id'];
+                unset($r['family_id']);
+                $events[$fid][] = $r;
+            }
+        }
+
+        $persons  = [];
+        $partners = [];
+        $children = [];
+        $families = [];
+        foreach ($ids as $fid) {
+            $m = $members[$fid] ?? ['partners' => [], 'parents' => [null, null], 'children' => [], 'pedigree' => []];
+            array_push($partners, ...$m['partners']);
+            array_push($children, ...$m['children']);
+            $families[] = [
+                'id'       => $fid,
+                'partners' => array_values(array_filter($m['parents'])) ?: $m['partners'],
+                'events'   => GedcomDate::sortEvents($events[$fid] ?? []),
+                'children' => array_map(fn($c) => ['person_id' => $c, 'pedigree' => $m['pedigree'][$c] ?? null], $m['children']),
+            ];
+        }
+        array_push($persons, ...$partners, ...$children);
+
+        // Herkunft der Partner (Elternfamilie mit Vater, Mutter)
+        $origins = $this->parentFamilies($partners);
+        foreach ($origins as $o) array_push($persons, ...array_filter($o['parents']));
+
+        // Eigene Familien der Kinder (mit Partner und Heirat) – im Buch als Verweis, sonst ausgeschrieben
+        $unions = $this->unionsOf($children);
+        foreach ($unions as $list) foreach ($list as $u) if ($u['spouse_id']) $persons[] = $u['spouse_id'];
+
+        $this->json([
+            'families'  => $families,
+            'origins'   => (object) $origins,
+            'unions'    => (object) $unions,
+            'persons'   => $this->facts($persons),
+            'total'     => $total,
+            'truncated' => $truncated,
+            'limit'     => self::BOOK_LIMIT,
+        ]);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Familien, in denen die Personen Partner sind, mit dem anderen Partner und der Heirat – nach Heiratsdatum.
+     * @return array<int, list<array{family_id: int, spouse_id: ?int, marriage: ?array}>>
+     */
+    private function unionsOf(array $personIds): array
+    {
+        $personIds = array_values(array_unique(array_filter(array_map('intval', $personIds))));
+        $out = [];
+        foreach (array_chunk($personIds, 1000) as $chunk) {
+            $in   = implode(',', array_fill(0, count($chunk), '?'));
+            $stmt = $this->db->prepare("
+                SELECT a.person_id AS person, a.family_id, b.person_id AS spouse
+                FROM family_members a JOIN families f ON f.id = a.family_id
+                LEFT JOIN family_members b ON b.family_id = a.family_id AND b.role <> 'CHIL' AND b.person_id <> a.person_id
+                WHERE f.tree_id = ? AND a.role <> 'CHIL' AND a.person_id IN ($in)
+                ORDER BY a.person_id, a.family_id
+            ");
+            $stmt->execute([$this->treeId, ...$chunk]);
+            $rows = $stmt->fetchAll();
+            $marr = $this->marriages(array_map(fn($r) => (int) $r['family_id'], $rows));
+            foreach ($rows as $r) {
+                $out[(int) $r['person']][] = ['family_id' => (int) $r['family_id'],
+                                              'spouse_id' => $r['spouse'] !== null ? (int) $r['spouse'] : null,
+                                              'marriage'  => $marr[(int) $r['family_id']] ?? null];
+            }
+        }
+        return array_map([$this, 'byMarriage'], $out);
+    }
+
+    /** @return array<int, array{0: string, 1: string}> Nachname und Vorname zum Sortieren (klein, ohne Akzente; Besucher: leer bei Verborgenen) */
+    private function sortNames(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (!$ids) return [];
+        $fold = function (?string $s): string {
+            $s = mb_strtolower(trim((string) $s));
+            $s = strtr($s, ['ä' => 'a', 'ö' => 'o', 'ü' => 'u', 'ß' => 'ss']);
+            if (class_exists('Normalizer')) $s = preg_replace('/\p{Mn}/u', '', Normalizer::normalize($s, Normalizer::FORM_D)) ?? $s;
+            return $s;
+        };
+        $in   = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->prepare("SELECT person_id, surname, given_name FROM person_names
+                                    WHERE person_id IN ($in) ORDER BY person_id, sort_order, id");
+        $stmt->execute($ids);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $pid = (int) $r['person_id'];
+            if (Privacy::hides($pid)) { $out[$pid] = ['', '']; continue; }
+            if (!isset($out[$pid])) $out[$pid] = [$fold($r['surname']), $fold($r['given_name'])];
+            elseif ($out[$pid][0] === '' && trim((string) $r['surname']) !== '') $out[$pid][0] = $fold($r['surname']);
+        }
+        return $out;
+    }
 
     /** Ehen einer Person nach Heiratsdatum (ohne Datum: Reihenfolge der Erfassung) */
     private function byMarriage(array $list): array

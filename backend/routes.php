@@ -121,4 +121,5 @@ return [
     ['GET',    'reports/descendants',             ReportController::class,     'descendants',      $G],
     ['GET',    'reports/family/{id}',             ReportController::class,     'family',           $G],
     ['GET',    'reports/list',                    ReportController::class,     'list',             $G],
+    ['GET',    'reports/familybook',              ReportController::class,     'familyBook',       $G],
 ];
