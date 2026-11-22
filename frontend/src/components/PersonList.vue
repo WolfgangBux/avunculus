@@ -1,5 +1,5 @@
 <script>
-import { ref, computed, watch, onMounted, nextTick, defineComponent } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick, defineComponent } from 'vue'
 import { searchPersons, deletePerson } from '../api/persons.js'
 import { nameLabel as primaryNameLabel, lifeSpan, sexClass } from '../format.js'
 import { t } from '../i18n/index.js'
@@ -7,6 +7,10 @@ import { useAsk } from '../composables/feedback.js'
 import { usePagedSearch } from '../composables/pagedSearch.js'
 import { mediaThumbUrl } from '../api/media.js'
 import { canEdit } from '../auth.js'
+import { currentTreeId } from '../trees.js'
+import SurnameIndex from './SurnameIndex.vue'
+import SurnameBranches from './SurnameBranches.vue'
+import SelectButton from 'openvue/selectbutton'
 import IconField from 'openvue/iconfield'
 import InputIcon from 'openvue/inputicon'
 import InputText from 'openvue/inputtext'
@@ -14,8 +18,15 @@ import Button from 'openvue/button'
 
 const PAGE = 100
 
+/** Ab so vielen Personen beginnt die Liste (ohne gemerkte Wahl) mit der Nachnamen-Übersicht */
+const SURNAMES_FROM = 1000
+const MODE_KEY = 'avunculus.personListMode'
+
+// Ansicht der Liste je Baum – bleibt beim Wechsel in andere Tabs erhalten (die Liste wird dabei neu aufgebaut)
+const nav = reactive({ tree: null, mode: null, letter: null, surname: null, show: 'persons' })
+
 export default defineComponent({
-  components: { IconField, InputIcon, InputText, Button },
+  components: { IconField, InputIcon, InputText, Button, SelectButton, SurnameIndex, SurnameBranches },
   props: {
     refresh:    Number,
     selectedId:     { type: [Number, String], default: null },
@@ -27,7 +38,46 @@ export default defineComponent({
     const ask = useAsk()
     // Suche und Seiten kommen vom Server – auch bei 50.000+ Personen werden nur 100 auf einmal geladen
     const { query, items: persons, total, start, loading, error, reload, loadMore, loadBefore, loadAround } =
-      usePagedSearch((q, opts) => searchPersons(q, opts), { pageSize: PAGE })
+      usePagedSearch((q, opts) => searchPersons(q, { ...opts, surname: nav.surname }), { pageSize: PAGE })
+
+    // ── Liste oder Nachnamen-Übersicht ──
+    // Neu in diesem Baum: mit gewählter Person (Adresse, Stammbaum) die Liste, sonst die gemerkte Wahl,
+    // sonst nach Größe des Baums. Ein gewählter Nachname filtert die Liste (oder zeigt seine Zweige).
+    if (nav.tree !== currentTreeId.value) {
+      let stored = null
+      try { stored = localStorage.getItem(MODE_KEY) } catch { /* kein Storage */ }
+      Object.assign(nav, { tree: currentTreeId.value, letter: null, surname: null, show: 'persons',
+                           mode: props.selectedId != null ? 'list' : (stored === 'list' || stored === 'surnames' ? stored : null) })
+    }
+    const modeOptions = computed(() => [
+      { value: 'list',     label: t('surnames.modeList') },
+      { value: 'surnames', label: t('surnames.modeSurnames') },
+    ])
+    const showOptions = computed(() => [
+      { value: 'persons',  label: t('surnames.showPersons') },
+      { value: 'branches', label: t('surnames.showBranches') },
+    ])
+    const mode = computed({
+      get: () => nav.mode ?? (total.value > SURNAMES_FROM ? 'surnames' : 'list'),
+      set: v => {
+        if (!v) return
+        nav.mode = v
+        try { localStorage.setItem(MODE_KEY, v) } catch { /* kein Storage */ }
+        if (v === 'list' && nav.surname !== null) setSurname(null)
+      },
+    })
+    function setSurname(s) {
+      // Die automatische Wahl hängt an der Anzahl – die gefilterte Liste ist kleiner, daher jetzt festhalten
+      if (s !== null) nav.mode ??= 'surnames'
+      nav.surname = s
+      nav.show = 'persons'
+      reload()
+    }
+    // Suchen heißt Personen finden: aus der Übersicht in die Liste wechseln
+    watch(query, q => { if (q.trim() && mode.value === 'surnames' && nav.surname === null) mode.value = 'list' })
+    const showIndex    = computed(() => mode.value === 'surnames' && nav.surname === null)
+    const showBranches = computed(() => nav.surname !== null && nav.show === 'branches')
+    const surnameLabel = computed(() => nav.surname === '' ? t('surnames.none') : nav.surname)
 
     async function remove(p) {
       const label = primaryNameLabel(p)
@@ -73,6 +123,7 @@ export default defineComponent({
     const rest = computed(() => total.value - start.value - persons.value.length)
 
     return { canEdit, t, PAGE, persons, rows, total, start, rest, query, loading, error, remove, loadMore, loadBefore, emit, isSelected, listEl,
+             nav, mode, modeOptions, showOptions, setSurname, showIndex, showBranches, surnameLabel,
              primaryNameLabel, lifeSpan, sexClass, mediaThumbUrl }
   },
 })
@@ -82,11 +133,25 @@ export default defineComponent({
 <div class="card">
   <div class="list-header">
     <h2 class="card-title">{{ t('person.list.title') }}</h2>
-    <span v-if="total || query" class="list-count">
+    <SelectButton v-model="mode" :options="modeOptions" option-value="value" option-label="label" :allow-empty="false"
+      size="small" class="list-mode" :aria-label="t('surnames.mode')" />
+    <span v-if="(total || query) && !showIndex && !showBranches && nav.surname === null" class="list-count">
       {{ total === 1 ? t('person.list.totalOne') : t('person.list.total', { n: total.toLocaleString() }) }}
     </span>
   </div>
 
+  <!-- Gewählter Nachname: Liste gefiltert oder seine Zweige -->
+  <div v-if="nav.surname !== null" class="surname-filter">
+    <button type="button" class="icon-btn" :title="t('surnames.back')" :aria-label="t('surnames.back')" @click="setSurname(null)">
+      <i class="pi pi-arrow-left" />
+    </button>
+    <strong class="surname-filter-name">{{ surnameLabel }}
+      <span v-if="!showBranches && !query" class="list-count">· {{ total.toLocaleString() }}</span></strong>
+    <SelectButton v-if="nav.surname !== ''" v-model="nav.show" :options="showOptions" option-value="value" option-label="label"
+      :allow-empty="false" size="small" />
+  </div>
+
+  <template v-if="!showBranches">
   <div class="list-toolbar">
     <IconField v-if="total || query" class="list-search">
       <InputIcon :class="['pi', loading ? 'pi-spin pi-spinner' : 'pi-search']" />
@@ -95,6 +160,13 @@ export default defineComponent({
     <Button v-if="canEdit" :label="t('person.list.new')" icon="pi pi-plus" size="small" @click="emit('create')" />
   </div>
 
+  </template>
+
+  <SurnameIndex v-if="showIndex" v-model:letter="nav.letter" :refresh="refresh" @pick="setSurname" />
+  <SurnameBranches v-else-if="showBranches" :surname="nav.surname" :selected-id="selectedId" :refresh="refresh"
+    @edit="p => emit('edit', p)" />
+
+  <template v-if="!showIndex && !showBranches">
   <p v-if="loading && !persons.length" class="muted">{{ t('common.loading') }}</p>
   <div v-else-if="error" class="alert alert-error">{{ t('person.list.loadError') }}</div>
   <p v-else-if="!persons.length && !query" class="muted">{{ t('person.list.empty') }}</p>
@@ -141,6 +213,7 @@ export default defineComponent({
         icon="pi pi-angle-down" text size="small" :loading="loading" @click="loadMore" />
     </li>
   </ul>
+  </template>
 </div>
 
 </template>

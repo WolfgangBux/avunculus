@@ -37,6 +37,7 @@ require_once __DIR__ . '/api/RepositoryController.php';
 require_once __DIR__ . '/api/PlaceController.php';
 require_once __DIR__ . '/api/MediaController.php';
 require_once __DIR__ . '/api/StatisticsController.php';
+require_once __DIR__ . '/api/SurnameController.php';
 require_once __DIR__ . '/api/ReportController.php';
 require_once __DIR__ . '/api/ChangeController.php';
 require_once __DIR__ . '/api/CheckController.php';

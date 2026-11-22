@@ -465,6 +465,168 @@ legend {
 .icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ════════════════════════════════════════════════════════
+   Nachnamen-Übersicht und Zweige (Personenliste)
+   ════════════════════════════════════════════════════════ */
+
+.list-header { flex-wrap: wrap; }
+.list-header .list-mode { margin-right: auto; }
+
+.surname-filter {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .6rem;
+}
+.surname-filter-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.surname-filter-name .list-count { font-weight: 400; }
+
+/* Kopf, Leiste und Inhalt teilen sich die Höhe der Karte: nur der Inhalt scrollt */
+.surname-index, .surname-branches { display: flex; flex-direction: column; min-height: 0; }
+
+.surname-letters { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .75rem; }
+
+.surname-letter {
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 .35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.surname-letter:hover  { background: var(--color-surface-alt); border-color: var(--color-border-strong); }
+.surname-letter.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.surname-letter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.surname-none { font-weight: 400; font-size: .78rem; color: var(--color-muted); }
+
+.surname-subtitle { font-size: .78rem; font-weight: 600; color: var(--color-muted); margin: 0 0 .5rem; }
+
+.surname-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: .15rem .7rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+.surname-cloud-item {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  line-height: 1.25;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.surname-cloud-item:hover { color: var(--color-primary); }
+
+.surname-list {
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+  margin: 0 -.5rem;
+  padding: 0 .5rem .25rem;
+}
+.surname-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .35rem .6rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: .88rem;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.surname-row:hover { background: var(--color-surface-alt); }
+.surname-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.surname-count { color: var(--color-muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+
+.branches-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .25rem;
+  margin-bottom: .35rem;
+}
+
+.branch-tree { list-style: none; margin: 0; padding: 0; }
+.surname-branches > .branch-tree { overflow: auto; min-height: 0; margin: 0 -.5rem; padding: 0 .5rem .25rem; }
+.branch-tree .branch-tree { margin-left: .6rem; padding-left: .55rem; border-left: 1px solid var(--color-border); }
+
+.branch-person, .branch-spouse {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .1rem .3rem .1rem 0;
+  border-radius: var(--radius-sm);
+  font-size: .85rem;
+}
+.branch-person.selected, .branch-spouse.selected { background: var(--sex-bg, var(--sex-u-bg)); }
+
+.branch-toggle {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-muted);
+  font-size: .65rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+button.branch-toggle:hover { background: var(--color-surface-alt); color: var(--color-primary); }
+
+.branch-name {
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.branch-name:hover { color: var(--color-primary); }
+.branch-other .branch-name, .branch-spouse .branch-name { font-weight: 400; color: var(--color-muted); }
+
+.branch-dot {
+  display: inline-block;
+  width: .5rem;
+  height: .5rem;
+  margin-right: .35rem;
+  border-radius: 50%;
+  background: var(--sex-fg, var(--sex-u-fg));
+  vertical-align: .05em;
+}
+
+.branch-years { color: var(--color-muted); font-size: .75rem; white-space: nowrap; }
+
+.branch-count {
+  padding: 0 .4rem;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+  font-size: .7rem;
+}
+
+.branch-spouse { padding-left: 1.5rem; font-size: .8rem; }
+.branch-marr { color: var(--color-faint); }
+
+/* ════════════════════════════════════════════════════════
    Namen / Ereignisse – Mehrfacheingabe
    ════════════════════════════════════════════════════════ */
 

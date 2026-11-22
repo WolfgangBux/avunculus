@@ -74,25 +74,28 @@ final class PersonQuery
      * Suche mit Seitenweise-Laden.
      * Jedes Wort muss in einem Namen der Person vorkommen; 3–4-stellige Zahlen suchen
      * im Geburts-, Tauf- oder Sterbedatum („Müller 1879“).
+     * $surname: nur Personen mit diesem Nachnamen in einem ihrer Namen ('' = ohne jeden Nachnamen), dann
+     * nach Vornamen sortiert – für die Nachnamen-Übersicht (SurnameController zählt genauso).
      * @return array{total: int, items: list<array>}
      */
-    public function search(string $q, int $limit, int $offset, array $exclude = [], ?int $around = null): array
+    public function search(string $q, int $limit, int $offset, array $exclude = [], ?int $around = null, ?string $surname = null): array
     {
-        [$where, $params] = $this->filter($q, $exclude);
+        [$where, $params] = $this->filter($q, $exclude, $surname);
+        $order = $surname !== null ? self::ORDER_GIVEN : self::ORDER;
 
         $count = $this->db->prepare("SELECT COUNT(*) FROM persons p WHERE p.tree_id = ? $where");
         $count->execute([$this->treeId, ...$params]);
         $total = (int) $count->fetchColumn();
 
         // around: die Seite, auf der diese Person steht (mit ein paar Namen davor) – statt die Person oben anzuheften
-        if ($around !== null && ($pos = $this->position($around, $where, $params)) !== null) {
+        if ($around !== null && ($pos = $this->position($around, $where, $params, $order)) !== null) {
             $offset = max(0, $pos - self::AROUND_BEFORE);
         }
 
         $stmt = $this->db->prepare("
             SELECT p.id FROM persons p " . self::FIRST_NAME_JOIN . "
             WHERE p.tree_id = ? $where
-            ORDER BY " . self::ORDER . "
+            ORDER BY $order
             LIMIT $limit OFFSET $offset
         ");
         $stmt->execute([$this->treeId, $this->treeId, ...$params]);
@@ -117,12 +120,15 @@ final class PersonQuery
     /** Alphabetisch nach Nachname, Vorname; ohne Nachnamen ans Ende */
     private const ORDER = "COALESCE(fn.surname, '') = '', COALESCE(fn.surname, ''), COALESCE(fn.given_name, ''), p.id";
 
+    /** Innerhalb eines Nachnamens: nach Vorname */
+    private const ORDER_GIVEN = "COALESCE(fn.given_name, '') = '', COALESCE(fn.given_name, ''), p.id";
+
     /** Stelle (ab 0) dieser Person in der sortierten Liste; null, wenn sie nicht zur Suche passt */
-    private function position(int $id, string $where, array $params): ?int
+    private function position(int $id, string $where, array $params, string $order): ?int
     {
         $stmt = $this->db->prepare("
             SELECT pos FROM (
-                SELECT p.id, ROW_NUMBER() OVER (ORDER BY " . self::ORDER . ") - 1 AS pos
+                SELECT p.id, ROW_NUMBER() OVER (ORDER BY $order) - 1 AS pos
                 FROM persons p " . self::FIRST_NAME_JOIN . "
                 WHERE p.tree_id = ? $where
             ) ranked WHERE id = ?
@@ -147,10 +153,16 @@ final class PersonQuery
     }
 
     /** @return array{0: string, 1: array} SQL-Bedingungen (beginnen mit AND) und Parameter */
-    private function filter(string $q, array $exclude): array
+    private function filter(string $q, array $exclude, ?string $surname = null): array
     {
         $where  = Privacy::personSql('p');   // Besucher finden private Personen nicht
         $params = [];
+        if ($surname === '') {
+            $where .= " AND NOT EXISTS (SELECT 1 FROM person_names n WHERE n.person_id = p.id AND TRIM(n.surname) <> '')";
+        } elseif ($surname !== null) {
+            $where .= " AND EXISTS (SELECT 1 FROM person_names n WHERE n.person_id = p.id AND TRIM(n.surname) = ?)";
+            $params[] = $surname;
+        }
         foreach (array_slice(preg_split('/\s+/', trim($q), -1, PREG_SPLIT_NO_EMPTY), 0, 6) as $tok) {
             $like = '%' . addcslashes($tok, '%_\\') . '%';
             if (preg_match('/^\d{3,4}$/', $tok)) {

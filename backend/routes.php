@@ -45,6 +45,8 @@ return [
     // ── Personen ────────────────────────────────────────────────────────────────
     ['GET',    'persons/search',                  PersonController::class,     'search',           $G],
     ['GET',    'persons/{id}',                    PersonController::class,     'show',             $G],
+    ['GET',    'surnames',                        SurnameController::class,    'index',            $G],   // Buchstaben, Wolke, ?letter=
+    ['GET',    'surnames/branches',               SurnameController::class,    'branches',         $G],   // ?surname=
     ['POST',   'persons',                         PersonController::class,     'store',            $E],
     ['PUT',    'persons/{id}',                    PersonController::class,     'update',           $E],
     ['DELETE', 'persons/{id}',                    PersonController::class,     'destroy',          $E],

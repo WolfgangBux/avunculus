@@ -15,7 +15,8 @@ class PersonController extends TreeScopedController
         $offset  = max(0, (int) ($_GET['offset'] ?? 0));
         $exclude = array_filter(explode(',', (string) ($_GET['exclude'] ?? '')), 'is_numeric');
         $around  = (int) ($_GET['around'] ?? 0) ?: null;   // Seite, auf der diese Person steht (Antwort: offset)
-        $this->json((new PersonQuery($this->db, $this->treeId))->search((string) ($_GET['q'] ?? ''), $limit, $offset, $exclude, $around));
+        $surname = isset($_GET['surname']) ? trim((string) $_GET['surname']) : null;   // '' = ohne Nachnamen
+        $this->json((new PersonQuery($this->db, $this->treeId))->search((string) ($_GET['q'] ?? ''), $limit, $offset, $exclude, $around, $surname));
     }
 
     public function show(int $id): void
