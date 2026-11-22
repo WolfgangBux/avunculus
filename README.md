@@ -12,6 +12,7 @@ Avunculus is a web application for recording, researching and sharing family his
 
 - **Several family trees** in one installation, each with its own people, families, sources and media. Places are shared by all trees.
 - **People** with multiple names, events and facts (birth, baptism, occupation, residence …), citations with page, transcription, link and quality rating, associated people (godparents, witnesses) and media. All forms save automatically as you type.
+- **Quick search** (Ctrl+K) for people, places, sources and media from anywhere in the app.
 - **Families** with partners, children (including pedigree such as adoption), family events and their own citations.
 - **Tree view** with ancestors, siblings and descendants, and a map of each person's places with their course of life, optionally with parents and grandparents.
 - **Sources and repositories**, with a list of every event that cites a source.

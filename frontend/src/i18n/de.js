@@ -18,6 +18,15 @@ export default {
     statistics: 'Statistik',
     analysis: 'Auswertung',
   },
+  search: {
+    label:       'Suchen',
+    ctrlK:       'Strg K',
+    placeholder: 'Personen, Orte, Quellen, Medien …',
+    hint:        'Namen, Jahreszahl, Ort oder Titel eingeben (mindestens zwei Zeichen).',
+    none:        'Nichts gefunden.',
+    more:        '{{n}} von {{total}}',
+    groups:      { person: 'Personen', place: 'Orte', source: 'Quellen', media: 'Medien' },
+  },
   action: {
     yes:         'Ja',
     no:          'Nein',

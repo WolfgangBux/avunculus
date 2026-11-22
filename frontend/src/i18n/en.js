@@ -18,6 +18,15 @@ export default {
     statistics: 'Statistics',
     analysis: 'Analysis',
   },
+  search: {
+    label:       'Search',
+    ctrlK:       'Ctrl K',
+    placeholder: 'People, places, sources, media …',
+    hint:        'Type a name, year, place or title (at least two characters).',
+    none:        'Nothing found.',
+    more:        '{{n}} of {{total}}',
+    groups:      { person: 'People', place: 'Places', source: 'Sources', media: 'Media' },
+  },
   action: {
     yes:         'Yes',
     no:          'No',

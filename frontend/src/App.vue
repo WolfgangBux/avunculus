@@ -39,6 +39,7 @@ import ChangeLogDialog from './components/ChangeLogDialog.vue'
 import CheckDialog from './components/CheckDialog.vue'
 import RelationshipDialog from './components/RelationshipDialog.vue'
 import ReportDialog from './components/ReportDialog.vue'
+import GlobalSearch from './components/GlobalSearch.vue'
 import { openRelationship } from './composables/relationship.js'
 import UpdateDialog from './components/UpdateDialog.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -51,7 +52,7 @@ import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TieredMenu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, ReportDialog, UpdateDialog, SettingsDialog },
+                Menu, TieredMenu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, ReportDialog, GlobalSearch, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -384,6 +385,13 @@ export default defineComponent({
       view.value = 'sources'
       await startEditSource({ id })
     }
+    // Treffer der Suche (Kopfzeile) in seinem Tab öffnen
+    async function openFromSearch({ type, id }) {
+      if (type === 'person') return openPersonFromMedia(id)
+      if (type === 'source') return openSourceFromMedia(id)
+      if (type === 'place')  return openPlaceFromStats(id)
+      if (type === 'media')  { view.value = 'media'; await selectMedia(id) }
+    }
 
     // ── Position in der Adresse: #/<Baum>/<Ansicht>[/<ID>] (siehe composables/hashRoute.js) ──
     // Jeder Tab steht hier genau einmal: welche ID er in der Adresse merkt und wie er sie
@@ -410,7 +418,7 @@ export default defineComponent({
       SOURCE_URL, APP_VERSION, LICENSES_URL,
       t, locale, setLocale, availableLocales,
       user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
-      view, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
+      view, openFromSearch, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
       trees, currentTree, currentTreeId, showOpen, showNew, showImport, treeMenu, treeMenuItems, analysisMenu, analysisMenuItems, sourcesView,
       loadTrees, openTree, onTreeDeleted,
       personRefresh, editingPerson, startEditPerson, onPersonSaved, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
@@ -460,6 +468,8 @@ export default defineComponent({
     <TieredMenu id="analysis-menu" ref="analysisMenu" :model="analysisMenuItems" popup />
   </nav>
 
+
+  <GlobalSearch @open="openFromSearch" />
 
   <button v-if="user" class="user-btn" :title="userLabel(user)" :aria-label="userLabel(user)" aria-haspopup="true" aria-controls="user-menu" @click="userMenu.toggle($event)">
     <i :class="['pi', isAdmin ? 'pi-shield' : 'pi-user']" />
