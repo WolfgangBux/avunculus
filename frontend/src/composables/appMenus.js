@@ -8,15 +8,16 @@ import { openChangeLog } from './changeLog.js'
 import { showChecks } from './checks.js'
 
 /**
- * Datei-Menü. Besucher: nur Öffnen; Bearbeiter: + Export, Änderungsprotokoll, Fehlersuche; Admin: + Neu, Import, Verwandten-Baum.
+ * Datei-Menü. Besucher: Öffnen, Verwandtschaftsrechner; Bearbeiter: + Export, Änderungsprotokoll, Fehlersuche; Admin: + Neu, Import, Verwandten-Baum.
  *   currentTree:   Ref des geöffneten Baums (Medienanzahl für „Export mit Medien“)
  *   relativesFrom: Getter der Person, aus deren Verwandten ein neuer Baum werden kann (oder null)
- *   on:            { open, new, import, relativesTree(person) }
+ *   on:            { open, new, import, relationship, relativesTree(person) }
  */
 export function useFileMenu({ currentTree, relativesFrom, on }) {
   return computed(() => [
     { label: t('file.open'),         icon: 'pi pi-folder-open', command: on.open },
     { label: t('file.new'),          icon: 'pi pi-plus',        visible: isAdmin.value, command: on.new },
+    { label: t('kinship.menu'),       icon: 'pi pi-share-alt',   disabled: !currentTreeId.value, command: on.relationship },
     { separator: true, visible: canEdit.value },
     { label: t('file.importGedcom'), icon: 'pi pi-upload',      visible: isAdmin.value, command: on.import },
     { label: t('file.exportGedcom'), icon: 'pi pi-download',    visible: canEdit.value, disabled: !currentTreeId.value,

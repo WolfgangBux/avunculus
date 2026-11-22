@@ -23,6 +23,8 @@ let   seq         = 0
 watch(() => [props.modelValue, props.label], ([id, label]) => {
   if (!id) selected.value = null
   else if (selected.value?.id !== Number(id)) selected.value = { id: Number(id), _label: label || `#${id}` }
+  // Name einer vorbelegten Person kommt oft erst später
+  else if (label && selected.value._label && selected.value._label !== label) selected.value = { ...selected.value, _label: label }
 }, { immediate: true })
 
 const labelOf = p => p?._label ?? nameLabel(p)

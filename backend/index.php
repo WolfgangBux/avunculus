@@ -25,6 +25,7 @@ require_once __DIR__ . '/lib/RowSync.php';
 require_once __DIR__ . '/lib/ChangeDiff.php';
 require_once __DIR__ . '/lib/ChangeLog.php';
 require_once __DIR__ . '/lib/Plausibility.php';
+require_once __DIR__ . '/lib/Kinship.php';
 require_once __DIR__ . '/api/BaseController.php';
 require_once __DIR__ . '/api/AuthController.php';
 require_once __DIR__ . '/api/UserController.php';
@@ -38,6 +39,7 @@ require_once __DIR__ . '/api/MediaController.php';
 require_once __DIR__ . '/api/StatisticsController.php';
 require_once __DIR__ . '/api/ChangeController.php';
 require_once __DIR__ . '/api/CheckController.php';
+require_once __DIR__ . '/api/RelationshipController.php';
 require_once __DIR__ . '/api/SystemController.php';
 
 $method = $_SERVER['REQUEST_METHOD'];

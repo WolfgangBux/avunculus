@@ -30,7 +30,7 @@ const props = defineProps({
   startPersonId: { type: Number, default: null },   // Startperson des Baums
   refresh:       Number,   // ändert sich, wenn Beziehungen anderswo geändert wurden
 })
-const emit = defineEmits(['person-saved', 'cancel-edit', 'edit-person', 'edit-family', 'relations', 'relatives-tree', 'set-start', 'open-place'])
+const emit = defineEmits(['person-saved', 'cancel-edit', 'edit-person', 'edit-family', 'relations', 'relatives-tree', 'relationship', 'set-start', 'open-place'])
 
 const notify = useNotify()
 const ask    = useAsk()
@@ -210,6 +210,8 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
         <i class="pi pi-flag-fill" /> {{ t('startPerson.isStart') }}</span>
       <Button v-else-if="isAdmin" :label="t('startPerson.set')" icon="pi pi-flag" text size="small"
         v-tooltip.bottom="t('startPerson.setHint')" @click="emit('set-start', personId)" />
+      <Button :label="t('kinship.button')" icon="pi pi-share-alt" text size="small"
+        v-tooltip.bottom="t('kinship.buttonHint')" @click="emit('relationship', personId)" />
       <Button v-if="isAdmin" :label="t('relativesTree.button')" icon="pi pi-sitemap" text size="small"
         v-tooltip.bottom="t('relativesTree.buttonHint')" @click="relativesTree" />
       <Button :label="allExpanded ? t('person.collapseAll') : t('person.expandAll')"

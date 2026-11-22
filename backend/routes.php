@@ -109,6 +109,9 @@ return [
     // ── Fehlersuche (unplausible Lebensdaten) ───────────────────────────────────
     ['GET',    'checks',                          CheckController::class,      'index',            $E],
 
+    // ── Verwandtschaftsrechner ──────────────────────────────────────────────────
+    ['GET',    'relationship',                    RelationshipController::class, 'show',           $G],
+
     // ── Statistik ───────────────────────────────────────────────────────────────
     ['GET',    'statistics',                      StatisticsController::class, 'index',            $G],
     ['GET',    'statistics/map',                  StatisticsController::class, 'map',              $G],

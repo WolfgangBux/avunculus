@@ -36,6 +36,8 @@ import PasswordDialog  from './components/PasswordDialog.vue'
 import UserAdminDialog from './components/UserAdminDialog.vue'
 import ChangeLogDialog from './components/ChangeLogDialog.vue'
 import CheckDialog from './components/CheckDialog.vue'
+import RelationshipDialog from './components/RelationshipDialog.vue'
+import { openRelationship } from './composables/relationship.js'
 import UpdateDialog from './components/UpdateDialog.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { checkUpdates, updateAvailable } from './composables/updates.js'
@@ -47,7 +49,7 @@ import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, UpdateDialog, SettingsDialog },
+                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -68,6 +70,9 @@ export default defineComponent({
         open:   () => { showOpen.value = true },
         new:    () => { showNew.value = true },
         import: () => { showImport.value = true },
+        // vorbelegt mit der gerade gezeigten Person und der Startperson
+        relationship: () => openRelationship(
+          view.value === 'persons' ? editingPerson.value?.id : view.value === 'tree' ? treeRootId.value : null, startPersonId.value),
         relativesTree: p => openRelativesTree(p),
       },
     })
@@ -399,7 +404,7 @@ export default defineComponent({
       SOURCE_URL, APP_VERSION, LICENSES_URL,
       t, locale, setLocale, availableLocales,
       user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
-      view, treeRootId, startPersonId, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
+      view, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
       trees, currentTree, currentTreeId, showOpen, showNew, showImport, fileMenu, fileMenuItems,
       loadTrees, openTree, onTreeDeleted,
       personRefresh, editingPerson, startEditPerson, onPersonSaved, onDiscardPerson, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
@@ -516,6 +521,7 @@ export default defineComponent({
       @edit-family="openFamilyEditor"
       @relations="openFamilyFor"
       @relatives-tree="openRelativesTree"
+      @relationship="id => openRelationship(id, startPersonId)"
       @open-place="openPlaceFromStats"
     />
     <div v-else class="card empty-hint">
@@ -627,6 +633,7 @@ export default defineComponent({
 <SettingsDialog v-if="isAdmin" v-model:visible="showSettings" />
 <ChangeLogDialog v-if="canEdit" />
 <CheckDialog v-if="canEdit" />
+<RelationshipDialog />
 <UpdateDialog v-if="isAdmin" />
 <TreeNewDialog v-model:visible="showNew" @created="openTree" />
 <RelativesTreeDialog v-model:visible="showRelatives" :person="relativesPerson" @open="tree => { loadTrees(); openTree(tree) }" />
