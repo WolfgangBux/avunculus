@@ -79,8 +79,33 @@ const RANK = ['own', 'family', 'gen1', 'gen2']
 const colorKey = e => e.generation ? 'gen' + e.generation : e.scope === 'person' ? 'own' : 'family'
 const placeColorKey = p => RANK[Math.min(...p.events.map(e => RANK.indexOf(colorKey(e))))]
 
+// Richtung des Lebenswegs: Pfeilspitze in der Mitte jedes Abschnitts, gedreht nach dem Winkel
+// auf der Karte (Mercator ist winkeltreu, der Winkel gilt also für jede Zoomstufe).
+// Abschnitte, die auf dem Bildschirm zu kurz sind, bekommen keinen Pfeil – sonst verdeckt er die Kreise.
+let arrows = []
+function addArrows(steps, color, size) {
+  for (let i = 1; i < steps.length; i++) {
+    const a = L.latLng(steps[i - 1].lat, steps[i - 1].lon), b = L.latLng(steps[i].lat, steps[i].lon)
+    const pa = map.project(a, 0), pb = map.project(b, 0)
+    const angle = Math.atan2(pb.y - pa.y, pb.x - pa.x) * 180 / Math.PI
+    const icon = L.divIcon({
+      className: 'map-arrow', iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+      html: `<svg viewBox="0 0 10 10" width="${size}" height="${size}" style="transform:rotate(${angle}deg)">`
+          + `<path d="M2 1 L9 5 L2 9 L4 5 Z" fill="${color}" /></svg>`,
+    })
+    arrows.push({ a, b, marker: L.marker(L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2), { icon, interactive: false, keyboard: false }) })
+  }
+}
+function updateArrows() {
+  for (const { a, b, marker } of arrows) {
+    const long = map.latLngToLayerPoint(a).distanceTo(map.latLngToLayerPoint(b)) > 50
+    if (long && !map.hasLayer(marker)) marker.addTo(map)
+    else if (!long && map.hasLayer(marker)) marker.remove()
+  }
+}
+
 function draw() {
-  map?.remove(); map = null
+  map?.remove(); map = null; arrows = []
   if (!el.value || !places.value.length) return
   map = L.map(el.value, { scrollWheelZoom: false, worldCopyJump: true })
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -109,6 +134,7 @@ function draw() {
     if (steps.length < 2) continue
     L.polyline(steps.map(p => [p.lat, p.lon]), path.own ? { color: path.color, weight: 2, opacity: .6, dashArray: '5 6' }
                                                         : { color: path.color, weight: 1.5, opacity: .5, dashArray: '3 5' }).addTo(map)
+    addArrows(steps, path.color, path.own ? 12 : 9)
   }
 
   for (const p of places.value) {
@@ -126,6 +152,8 @@ function draw() {
 
   const bounds = L.latLngBounds(places.value.map(p => [p.lat, p.lon]))
   map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 })
+  map.on('zoomend', updateArrows)
+  updateArrows()
 }
 watch(places, async () => { await nextTick(); draw() })
 

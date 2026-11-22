@@ -517,7 +517,7 @@ export default {
     title:         'Places',
     own:           'own events',
     family:        'family events',
-    hint:          'Dashed lines: course of life in chronological order. Click a circle to see the events.',
+    hint:          'Dashed lines: course of life in chronological order, arrows show the direction. Click a circle to see the events.',
     withoutCoords: 'No coordinates, therefore not on the map:',
     ancestors:     'Ancestors',
     ancestorOptions: { 0: 'none', 1: 'parents', 2: 'parents and grandparents' },
