@@ -47,6 +47,8 @@ export default defineComponent({
       Object.assign(nav, { tree: currentTreeId.value, letter: null, surname: null, show: 'persons',
                            mode: props.selectedId != null ? 'list' : (stored === 'list' || stored === 'surnames' ? stored : null) })
     }
+    // Von außen vorgegebene Suche (Wolke in der Auswertung) übernehmen
+    if (nav.query != null) { query.value = nav.query; nav.query = null }
     const modeOptions = computed(() => [
       { value: 'list',     label: t('surnames.modeList') },
       { value: 'surnames', label: t('surnames.modeSurnames') },

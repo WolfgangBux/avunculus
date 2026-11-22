@@ -117,6 +117,7 @@ return [
     // ── Statistik ───────────────────────────────────────────────────────────────
     ['GET',    'statistics',                      StatisticsController::class, 'index',            $G],
     ['GET',    'statistics/map',                  StatisticsController::class, 'map',              $G],
+    ['GET',    'statistics/cloud',                StatisticsController::class, 'cloud',            $G],   // ?kind=given|place&n=
 
     // ── Berichte und Ausdrucke ──────────────────────────────────────────────────
     ['GET',    'reports/ancestors',               ReportController::class,     'ancestors',        $G],

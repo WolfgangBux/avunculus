@@ -291,10 +291,17 @@ final class StatisticsController extends TreeScopedController
     /** Häufigste Vornamen (jeder Vorname eines Namens zählt, z. B. „Johann Georg“ → Johann, Georg) */
     private function topGivenNames(string $sex): array
     {
+        $n = array_slice($this->givenNameCounts($sex), 0, self::TOP, true);
+        return array_map(fn($k, $v) => ['label' => (string) $k, 'count' => $v], array_keys($n), $n);
+    }
+
+    /** Personen je Vorname (Hauptname), häufigste zuerst; $sex null = alle */
+    private function givenNameCounts(?string $sex): array
+    {
         $stmt = $this->db->prepare("
             SELECT n.given_name FROM person_names n JOIN persons p ON p.id = n.person_id
-            WHERE p.tree_id = ? AND p.sex = ? AND n.sort_order = 0 AND n.given_name <> ''" . Privacy::personSql());
-        $stmt->execute([$this->treeId, $sex]);
+            WHERE p.tree_id = ?" . ($sex ? ' AND p.sex = ?' : '') . " AND n.sort_order = 0 AND n.given_name <> ''" . Privacy::personSql());
+        $stmt->execute($sex ? [$this->treeId, $sex] : [$this->treeId]);
         $n = [];
         while (($g = $stmt->fetchColumn()) !== false) {
             foreach (array_unique(preg_split('/[\s,]+/u', trim((string) $g))) as $part) {
@@ -304,7 +311,59 @@ final class StatisticsController extends TreeScopedController
             }
         }
         arsort($n);
-        return array_map(fn($k, $v) => ['label' => (string) $k, 'count' => $v], array_keys($slice = array_slice($n, 0, self::TOP, true)), $slice);
+        return $n;
+    }
+
+    /**
+     * GET statistics/cloud?kind=given|place&n=N[&sex=M|F] – die N häufigsten Vornamen bzw. Orte für die Wolke
+     * (Nachnamen: SurnameController, surnames?cloud=N). Antwort: { cloud: [{ label, count, id?, title? }] }
+     */
+    public function cloud(): void
+    {
+        $limit = max(1, min(300, (int) ($_GET['n'] ?? 100)));
+        $kind  = (string) ($_GET['kind'] ?? '');
+        if ($kind === 'given') {
+            $sex = in_array($_GET['sex'] ?? '', ['M', 'F'], true) ? $_GET['sex'] : null;
+            $n = array_slice($this->givenNameCounts($sex), 0, $limit, true);
+            $this->json(['cloud' => array_map(fn($k, $v) => ['label' => (string) $k, 'count' => $v], array_keys($n), $n)]);
+        } elseif ($kind === 'place') {
+            $this->json(['cloud' => $this->placeCloud($limit)]);
+        } else {
+            throw new HttpError(400, 'Unbekannte Art');
+        }
+    }
+
+    /**
+     * Orte nach Anzahl Personen mit einem Ereignis dort (eigene Ereignisse und die ihrer Familien).
+     * Gleichnamige Orte bekommen ihren übergeordneten Ort dazu („Hausen (Landshut)“).
+     */
+    private function placeCloud(int $limit): array
+    {
+        $rows = $this->rows("
+            SELECT pl.id, pl.name, pl.full_name, par.name AS parent, x.n FROM (
+                SELECT place_id, COUNT(DISTINCT pid) AS n FROM (
+                    SELECT e.place_id, e.person_id AS pid
+                    FROM person_events e JOIN persons p ON p.id = e.person_id
+                    WHERE p.tree_id = ? AND e.place_id IS NOT NULL" . Privacy::personSql() . "
+                    UNION ALL
+                    SELECT e.place_id, m.person_id
+                    FROM family_events e JOIN families f ON f.id = e.family_id
+                    JOIN family_members m ON m.family_id = f.id AND m.role IN ('HUSB', 'WIFE')
+                    JOIN persons p ON p.id = m.person_id
+                    WHERE f.tree_id = ? AND e.place_id IS NOT NULL" . Privacy::familySql('f.id') . Privacy::personSql() . "
+                ) ev GROUP BY place_id ORDER BY n DESC, place_id LIMIT $limit
+            ) x
+            JOIN places pl ON pl.id = x.place_id
+            LEFT JOIN places par ON par.id = pl.parent_id
+            ORDER BY x.n DESC, pl.name", [$this->treeId, $this->treeId]);
+
+        $same = array_count_values(array_map(fn($r) => mb_strtolower($r['name']), $rows));
+        return array_map(fn($r) => [
+            'id'    => (int) $r['id'],
+            'label' => $same[mb_strtolower($r['name'])] > 1 && $r['parent'] ? "{$r['name']} ({$r['parent']})" : $r['name'],
+            'title' => $r['full_name'],
+            'count' => (int) $r['n'],
+        ], $rows);
     }
 
     private function topPlaces(array $types): array

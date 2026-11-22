@@ -1,5 +1,5 @@
 /**
- * Namenswolke als Bild: Anordnung, Farben, Export als SVG und PNG – ohne Bibliothek.
+ * Wortwolke (Nachnamen, Vornamen, Orte) als Bild: Anordnung, Farben, Export als SVG und PNG – ohne Bibliothek.
  *
  * Die häufigsten Namen (größte Schrift) stehen in der Mitte, die übrigen werden der Reihe nach auf einer
  * Spirale nach außen geschoben, bis sie keinen schon gesetzten Namen berühren. Die Breite misst ein Canvas
@@ -33,7 +33,7 @@ function measure(text, size, weight) {
 export const ORDERS = ['cloud', 'alpha']
 
 /**
- * words: [{ surname, count }] (beliebige Reihenfolge).
+ * words: [{ label, count, id?, title? }] (beliebige Reihenfolge; id/title reisen mit, z. B. Ort und ganze Ortsangabe).
  * order: 'cloud' – häufigste in der Mitte, die übrigen spiralförmig darum;
  *        'alpha' – alphabetisch in zentrierten Zeilen (die Größe zeigt weiter die Häufigkeit)
  * aspect: gewünschtes Verhältnis Breite : Höhe (ungefähr – die Wörter bestimmen den genauen Umriss)
@@ -48,7 +48,7 @@ export function layoutCloud(words, order = 'cloud', aspect = ASPECT.default) {
 
 /** Wörter nach Häufigkeit (häufigste zuerst) mit Schriftgröße, Gewicht und gemessener Breite */
 function sized(words) {
-  const sorted = [...words].sort((a, b) => b.count - a.count || a.surname.localeCompare(b.surname))
+  const sorted = [...words].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
   const logs   = sorted.map(s => Math.log(s.count))
   const lo = Math.min(...logs), span = Math.max(...logs) - lo || 1
 
@@ -57,7 +57,7 @@ function sized(words) {
     const weight = (logs[i] - lo) / span
     const size = 14 + 42 * weight
     const fontWeight = weightOf(weight)
-    return { text: s.surname, count: s.count, weight, size, fontWeight, w: measure(s.surname, size, fontWeight) }
+    return { text: s.label, id: s.id ?? null, title: s.title ?? null, count: s.count, weight, size, fontWeight, w: measure(s.label, size, fontWeight) }
   })
   const area = items.reduce((a, it) => a + it.w * it.size * (ASCENT + DESCENT), 0)
   // Kleinste Schrift nie unter MIN_SIZE (bei 300 Namen sonst unlesbar) – die Wolke wird dann eben größer

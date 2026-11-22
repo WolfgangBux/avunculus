@@ -30,7 +30,7 @@ import PlaceForm   from './components/PlaceForm.vue'
 import MediaList   from './components/MediaList.vue'
 import MediaForm   from './components/MediaForm.vue'
 import StatisticsView from './components/StatisticsView.vue'
-import { showSurnameInList } from './composables/personListNav.js'
+import { showSurnameInList, showSearchInList } from './composables/personListNav.js'
 import RelativesTreeDialog from './components/RelativesTreeDialog.vue'
 import { fetchMedia } from './api/media.js'
 import LoginDialog     from './components/LoginDialog.vue'
@@ -404,9 +404,13 @@ export default defineComponent({
       view.value = 'sources'
       await startEditSource({ id })
     }
-    // Namenswolke (Auswertung): Personenliste auf diesen Nachnamen stellen
+    // Wolke (Auswertung): Personenliste auf diesen Nachnamen stellen bzw. nach dem Vornamen suchen
     function openSurname(surname) {
       showSurnameInList(surname)
+      view.value = 'persons'
+    }
+    function openGivenName(name) {
+      showSearchInList(name)
       view.value = 'persons'
     }
     // Treffer der Suche (Kopfzeile) in seinem Tab öffnen
@@ -479,7 +483,7 @@ export default defineComponent({
       repoRefresh, editingRepository, startEditRepository, onRepositorySaved, onRepositoryDeleted,
       openRepositoryFromSource, openSourceFromRepository,
       placeRefresh, editingPlace, selectPlace, openPlaceFromStats, onPlaceSaved, onPlaceChanged, onPlaceDeleted,
-      mediaRefresh, editingMedia, selectMedia, onMediaChanged, onMediaDeleted, openPersonFromMedia, openSourceFromMedia, openSurname,
+      mediaRefresh, editingMedia, selectMedia, onMediaChanged, onMediaDeleted, openPersonFromMedia, openSourceFromMedia, openSurname, openGivenName,
     }
   },
 })
@@ -661,7 +665,7 @@ export default defineComponent({
   </div>
 
   <StatisticsView v-if="view === 'statistics'" :tree-name="currentTree?.name ?? ''"
-    @open-person="openPersonFromMedia" @open-place="openPlaceFromStats" @open-surname="openSurname" />
+    @open-person="openPersonFromMedia" @open-place="openPlaceFromStats" @open-surname="openSurname" @open-given="openGivenName" />
 
   <div v-if="view === 'media'" class="workspace workspace-media">
     <MediaList :refresh="mediaRefresh" :selected-id="editingMedia?.id ?? null" @select="selectMedia"
