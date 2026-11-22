@@ -229,7 +229,8 @@ button { font-family: inherit; }
 .workspace > .card + .card { margin-top: 0; }
 
 @media (max-width: 900px) {
-  .workspace { grid-template-columns: 1fr; }
+  /* minmax(0, …): breiter Inhalt (lange Namen, Tabellen) darf die Spalte nicht aufdrücken */
+  .workspace, .workspace.workspace-media { grid-template-columns: minmax(0, 1fr); }
   .workspace > .card:first-child { position: static; max-height: none; }
 }
 
@@ -972,8 +973,8 @@ legend {
 
 /* ── Familien-Tab ──────────────────────────────────────── */
 
-.list-toolbar { display: flex; gap: .5rem; align-items: center; margin-bottom: .75rem; }
-.list-toolbar .list-search { flex: 1; margin-bottom: 0; }
+.list-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem; }
+.list-toolbar .list-search { flex: 1; min-width: 9rem; margin-bottom: 0; }   /* schmal: Knöpfe rutschen in die nächste Zeile */
 .list-toolbar > button { margin-left: auto; flex-shrink: 0; }
 
 .couple-avatars { display: flex; flex-shrink: 0; width: 52px; }
@@ -1829,6 +1830,8 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
 
 /* Ortskarte */
 .map-filters { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; margin-bottom: .75rem; }
+/* Ereignisarten der Karte: auf schmalen Bildschirmen umbrechen statt über den Rand ragen */
+.map-filters .p-selectbutton { display: inline-flex; flex-wrap: wrap; max-width: 100%; }
 .map-range { display: flex; align-items: center; gap: .9rem; flex: 1 1 280px; max-width: 520px; }
 .map-range-label { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .85rem; min-width: 6.5rem; }
 .map-slider { flex: 1; }
