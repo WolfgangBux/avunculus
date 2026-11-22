@@ -173,7 +173,7 @@ button { font-family: inherit; }
 }
 @media (max-width: 1400px) {
   /* Baum- und Benutzerknopf nur mit Symbol (Name als Tooltip), damit alle Tabs Platz haben */
-  .current-tree span, .app-header .user-btn span { display: none; }
+  .app-header .user-btn span { display: none; }
 }
 @media (max-width: 1200px) {
   .brand-text { display: none; }
@@ -727,11 +727,12 @@ legend {
 .nav-menu .pi { font-size: .75rem; }
 .nav-divider { align-self: center; width: 1px; height: 22px; background: var(--color-border); margin: 0 .25rem; }
 
-.current-tree {
+.tree-btn {
   display: inline-flex;
   align-items: center;
   gap: .45rem;
   max-width: 16rem;
+  flex-shrink: 0;
   padding: .35rem .75rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -742,11 +743,25 @@ legend {
   cursor: pointer;
   transition: border-color .15s, color .15s;
 }
-.current-tree span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.current-tree .pi  { color: var(--color-primary); font-size: .8rem; }
-.current-tree:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.tree-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-btn .pi  { color: var(--color-primary); font-size: .8rem; }
+.tree-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-@media (max-width: 800px) { .current-tree span { display: none; } }
+.tree-btn .pi-angle-down { font-size: .7rem; color: var(--color-muted); }
+.nav-menu-icon { display: none; }
+@media (max-width: 1200px) { .tree-btn { max-width: 11rem; } }
+/* schmal: Baum und Auswertung nur als Symbol, damit die Tabs Platz haben */
+@media (max-width: 1000px) {
+  .tree-btn span, .nav-menu-label { display: none; }
+  .nav-menu-icon { display: inline; font-size: 1rem !important; }
+}
+
+/* Quellen | Archive im Kopf der Listen (wie die Sprachwahl) */
+.list-switch { display: inline-flex; background: var(--color-surface-alt); border: 1px solid var(--color-border); border-radius: 999px; padding: 2px; }
+.list-switch-btn { padding: .25rem .9rem; border: none; border-radius: 999px; background: transparent; color: var(--color-muted);
+  cursor: pointer; font-size: .9rem; font-weight: 600; }
+.list-switch-btn:hover  { color: var(--color-text); }
+.list-switch-btn.active { background: var(--color-surface); color: var(--color-primary); box-shadow: var(--shadow-sm); }
 
 .dialog-intro { margin-bottom: .9rem; font-size: .85rem; }
 
@@ -1651,7 +1666,7 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
   cursor: pointer;
   transition: border-color .15s, color .15s;
 }
-.app-header > .user-btn { margin-left: -1.4rem; flex-shrink: 0; max-width: 11rem; }   /* näher an Baum-Knopf und Sprachwahl */
+.app-header > .user-btn { flex-shrink: 0; max-width: 11rem; }
 .user-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-btn .pi  { color: var(--color-primary); font-size: .8rem; }
 .user-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }

@@ -16,6 +16,7 @@ export default {
     repositories: 'Repositories',
     media: 'Media',
     statistics: 'Statistics',
+    analysis: 'Analysis',
   },
   action: {
     yes:         'Yes',
@@ -950,7 +951,7 @@ export default {
     loadError:   'Could not load the family tree.',
   },
   file: {
-    menu:          'File',
+    chooseTree:    'Choose a tree',
     open:          'Open family tree…',
     new:           'New family tree…',
     importGedcom:  'Import GEDCOM…',

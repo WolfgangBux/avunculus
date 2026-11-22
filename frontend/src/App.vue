@@ -4,6 +4,7 @@ import { usePrimeVue } from 'openvue/config'
 import Toast from 'openvue/toast'
 import ConfirmDialog from 'openvue/confirmdialog'
 import Menu from 'openvue/menu'
+import TieredMenu from 'openvue/tieredmenu'
 import { fetchTrees, setTreeStartPerson } from './api/trees.js'
 import { currentTreeId, setCurrentTree, storedTreeId } from './trees.js'
 import TreeOpenDialog     from './components/TreeOpenDialog.vue'
@@ -45,12 +46,12 @@ import { checkUpdates, updateAvailable } from './composables/updates.js'
 import { user, needsSetup, isAdmin, canEdit, loadMe, logout, userLabel, legalLinks } from './auth.js'
 import { useNotify } from './composables/feedback.js'
 import { useHashRoute } from './composables/hashRoute.js'
-import { useFileMenu, useUserMenu, useReportsMenu } from './composables/appMenus.js'
+import { useTreeMenu, useUserMenu, useAnalysisMenu } from './composables/appMenus.js'
 import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, ReportDialog, UpdateDialog, SettingsDialog },
+                Menu, TieredMenu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, ReportDialog, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -61,9 +62,9 @@ export default defineComponent({
     const showOpen    = ref(false)
     const showNew     = ref(false)
     const showImport  = ref(false)
-    const fileMenu    = ref(null)
+    const treeMenu    = ref(null)
 
-    const fileMenuItems = useFileMenu({
+    const treeMenuItems = useTreeMenu({
       currentTree,
       // neuer Baum aus den Verwandten: die gerade im Personen-Tab geöffnete Person
       relativesFrom: () => view.value === 'persons' ? editingPerson.value : null,
@@ -71,21 +72,28 @@ export default defineComponent({
         open:   () => { showOpen.value = true },
         new:    () => { showNew.value = true },
         import: () => { showImport.value = true },
-        // vorbelegt mit der gerade gezeigten Person und der Startperson
-        relationship: () => openRelationship(
-          view.value === 'persons' ? editingPerson.value?.id : view.value === 'tree' ? treeRootId.value : null, startPersonId.value),
         relativesTree: p => openRelativesTree(p),
       },
     })
 
-    // ── Berichte: vorbelegt mit der gerade gezeigten Person bzw. Familie ──
-    const reportsMenu      = ref(null)
-    const reportsMenuItems = useReportsMenu({
+    // ── Auswertung: Statistik, Berichte (vorbelegt mit der gerade gezeigten Person bzw. Familie), Werkzeuge ──
+    const analysisMenu      = ref(null)
+    const analysisMenuItems = useAnalysisMenu({
       context: () => ({
         person: view.value === 'persons' ? editingPerson.value?.id ?? treeRootId.value : treeRootId.value ?? startPersonId.value,
         family: view.value === 'families' ? editingFamilyId.value : null,
       }),
+      on: {
+        statistics: () => { view.value = 'statistics' },
+        // vorbelegt mit der gerade gezeigten Person und der Startperson
+        relationship: () => openRelationship(
+          view.value === 'persons' ? editingPerson.value?.id : view.value === 'tree' ? treeRootId.value : null, startPersonId.value),
+      },
     })
+
+    // Quellen und Archive teilen sich einen Tab; er öffnet die zuletzt gezeigte der beiden Listen
+    const sourcesView = ref('sources')
+    watch(view, v => { if (v === 'sources' || v === 'repositories') sourcesView.value = v })
 
     // ── Neuer Stammbaum aus den Verwandten einer Person ───
     const showRelatives   = ref(false)
@@ -403,7 +411,7 @@ export default defineComponent({
       t, locale, setLocale, availableLocales,
       user, needsSetup, isAdmin, canEdit, userLabel, showLogin, showPassword, showUsers, showSettings, legalLinks, userMenu, userMenuItems, onLoggedIn,
       view, treeRootId, startPersonId, openRelationship, setStartPerson, goTree, goPersons, showInTree, editFromTree, createFromTree,
-      trees, currentTree, currentTreeId, showOpen, showNew, showImport, fileMenu, fileMenuItems, reportsMenu, reportsMenuItems,
+      trees, currentTree, currentTreeId, showOpen, showNew, showImport, treeMenu, treeMenuItems, analysisMenu, analysisMenuItems, sourcesView,
       loadTrees, openTree, onTreeDeleted,
       personRefresh, editingPerson, startEditPerson, onPersonSaved, onCancelEditPerson, showRelatives, relativesPerson, openRelativesTree,
       familyPerson, openFamily, openFamilyFor, closeFamily, onFamilyChanged,
@@ -429,30 +437,29 @@ export default defineComponent({
     </div>
   </div>
 
+  <button class="tree-btn" aria-haspopup="true" aria-controls="tree-menu" :title="currentTree?.name"
+    @click="treeMenu.toggle($event)">
+    <i class="pi pi-sitemap" />
+    <span>{{ currentTree?.name ?? t('file.chooseTree') }}</span>
+    <i class="pi pi-angle-down" />
+  </button>
+  <Menu id="tree-menu" ref="treeMenu" :model="treeMenuItems" popup />
+
   <nav class="app-nav">
-    <button class="nav-tab nav-menu" aria-haspopup="true" aria-controls="file-menu" @click="fileMenu.toggle($event)">
-      {{ t('file.menu') }} <i class="pi pi-angle-down" />
-    </button>
-    <Menu id="file-menu" ref="fileMenu" :model="fileMenuItems" popup />
-    <button class="nav-tab nav-menu" aria-haspopup="true" aria-controls="reports-menu" :disabled="!currentTreeId" @click="reportsMenu.toggle($event)">
-      {{ t('reports.menu') }} <i class="pi pi-angle-down" />
-    </button>
-    <Menu id="reports-menu" ref="reportsMenu" :model="reportsMenuItems" popup />
-    <span class="nav-divider" aria-hidden="true" />
     <button :class="['nav-tab', { active: view === 'tree' }]" @click="goTree">{{ t('nav.tree') }}</button>
     <button :class="['nav-tab', { active: view === 'persons' }]" @click="goPersons">{{ t('nav.persons') }}</button>
     <button :class="['nav-tab', { active: view === 'families' }]" @click="view = 'families'">{{ t('nav.families') }}</button>
-    <button :class="['nav-tab', { active: view === 'sources' }]" @click="view = 'sources'">{{ t('nav.sources') }}</button>
-    <button :class="['nav-tab', { active: view === 'repositories' }]" @click="view = 'repositories'">{{ t('nav.repositories') }}</button>
+    <button :class="['nav-tab', { active: view === 'sources' || view === 'repositories' }]" @click="view = sourcesView">{{ t('nav.sources') }}</button>
     <button :class="['nav-tab', { active: view === 'places' }]" @click="view = 'places'">{{ t('nav.places') }}</button>
     <button :class="['nav-tab', { active: view === 'media' }]" @click="view = 'media'">{{ t('nav.media') }}</button>
-    <button :class="['nav-tab', { active: view === 'statistics' }]" @click="view = 'statistics'">{{ t('nav.statistics') }}</button>
+    <span class="nav-divider" aria-hidden="true" />
+    <button :class="['nav-tab', 'nav-menu', { active: view === 'statistics' }]" aria-haspopup="true" aria-controls="analysis-menu"
+      :aria-label="t('nav.analysis')" :title="t('nav.analysis')" @click="analysisMenu.toggle($event)">
+      <i class="pi pi-chart-line nav-menu-icon" /><span class="nav-menu-label">{{ t('nav.analysis') }}</span> <i class="pi pi-angle-down" />
+    </button>
+    <TieredMenu id="analysis-menu" ref="analysisMenu" :model="analysisMenuItems" popup />
   </nav>
 
-  <button v-if="currentTree" class="current-tree" v-tooltip.bottom="currentTree.name + ' – ' + t('file.open')" :aria-label="currentTree.name + ' – ' + t('file.open')" @click="showOpen = true">
-    <i class="pi pi-sitemap" />
-    <span>{{ currentTree.name }}</span>
-  </button>
 
   <button v-if="user" class="user-btn" :title="userLabel(user)" :aria-label="userLabel(user)" aria-haspopup="true" aria-controls="user-menu" @click="userMenu.toggle($event)">
     <i :class="['pi', isAdmin ? 'pi-shield' : 'pi-user']" />
@@ -556,7 +563,7 @@ export default defineComponent({
   </div>
 
   <div v-if="view === 'sources'" class="workspace">
-    <SourceList :refresh="sourceRefresh" :selected-id="editingSource?.id ?? null" :selected-source="editingSource"
+    <SourceList :refresh="sourceRefresh" @switch="v => view = v" :selected-id="editingSource?.id ?? null" :selected-source="editingSource"
       @edit="startEditSource" @create="onCancelEditSource" />
     <SourceForm
       v-if="canEdit || editingSource"
@@ -571,7 +578,7 @@ export default defineComponent({
   </div>
 
   <div v-if="view === 'repositories'" class="workspace">
-    <RepositoryList :refresh="repoRefresh" :selected-id="editingRepository?.id ?? null"
+    <RepositoryList :refresh="repoRefresh" @switch="v => view = v" :selected-id="editingRepository?.id ?? null"
       @edit="startEditRepository" @create="editingRepository = null" @deleted="onRepositoryDeleted" />
     <RepositoryForm v-if="canEdit || editingRepository" :edit-repository="editingRepository"
       @saved="onRepositorySaved" @open-source="openSourceFromRepository" />

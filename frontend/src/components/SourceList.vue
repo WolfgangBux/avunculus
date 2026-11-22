@@ -1,4 +1,5 @@
 <script setup>
+import SourceSwitch from './SourceSwitch.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import Button from 'openvue/button'
 import IconField from 'openvue/iconfield'
@@ -17,7 +18,7 @@ const props = defineProps({
   selectedId:     { type: [Number, String], default: null },
   selectedSource: { type: Object, default: null },   // vollständig geladene Quelle (falls nicht in der Liste)
 })
-const emit = defineEmits(['edit', 'create'])
+const emit = defineEmits(['edit', 'create', 'switch'])
 
 const ask = useAsk()
 
@@ -58,7 +59,8 @@ watch(() => [props.selectedId, sources.value.length], async () => {
 <template>
   <div class="card">
     <div class="list-header">
-      <h2 class="card-title">{{ t('source.list.title') }}</h2>
+      <h2 class="sr-only">{{ t('source.list.title') }}</h2>
+      <SourceSwitch active="sources" @switch="v => emit('switch', v)" />
       <span v-if="total || query" class="list-count">{{ t('source.list.total', { n: total.toLocaleString() }) }}</span>
     </div>
 

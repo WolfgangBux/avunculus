@@ -9,27 +9,22 @@ import { showChecks } from './checks.js'
 import { openReports } from './reports.js'
 
 /**
- * Datei-Menü. Besucher: Öffnen, Verwandtschaftsrechner; Bearbeiter: + Export, Änderungsprotokoll, Fehlersuche; Admin: + Neu, Import, Verwandten-Baum.
+ * Baum-Menü (Knopf mit dem Namen des geöffneten Baums). Alle: Öffnen; Bearbeiter: + Export; Admin: + Neu, Import, Verwandten-Baum.
  *   currentTree:   Ref des geöffneten Baums (Medienanzahl für „Export mit Medien“)
  *   relativesFrom: Getter der Person, aus deren Verwandten ein neuer Baum werden kann (oder null)
- *   on:            { open, new, import, relationship, relativesTree(person) }
+ *   on:            { open, new, import, relativesTree(person) }
  */
-export function useFileMenu({ currentTree, relativesFrom, on }) {
+export function useTreeMenu({ currentTree, relativesFrom, on }) {
   return computed(() => [
     { label: t('file.open'),         icon: 'pi pi-folder-open', command: on.open },
     { label: t('file.new'),          icon: 'pi pi-plus',        visible: isAdmin.value, command: on.new },
-    { label: t('kinship.menu'),       icon: 'pi pi-share-alt',   disabled: !currentTreeId.value, command: on.relationship },
     { separator: true, visible: canEdit.value },
     { label: t('file.importGedcom'), icon: 'pi pi-upload',      visible: isAdmin.value, command: on.import },
     { label: t('file.exportGedcom'), icon: 'pi pi-download',    visible: canEdit.value, disabled: !currentTreeId.value,
       command: () => exportGedcom() },
     { label: t('file.exportGedcomMedia'), icon: 'pi pi-images', visible: canEdit.value, disabled: !currentTree.value?.media_count,
       command: () => exportGedcom({ media: true }) },
-    { separator: true, visible: canEdit.value },
-    { label: t('changes.menu'),     icon: 'pi pi-history',     visible: canEdit.value, disabled: !currentTreeId.value,
-      command: () => openChangeLog() },
-    { label: t('checks.menu'),      icon: 'pi pi-exclamation-triangle', visible: canEdit.value, disabled: !currentTreeId.value,
-      command: () => { showChecks.value = true } },
+    { separator: true, visible: isAdmin.value },
     { label: t('relativesTree.menu'), icon: 'pi pi-sitemap', visible: isAdmin.value,
       disabled: !relativesFrom()?.id, command: () => on.relativesTree(relativesFrom()) },
   ])
@@ -62,25 +57,37 @@ export function useUserMenu({ on }) {
 }
 
 /**
- * Berichte-Menü: Blätter zu einer Person/Familie und Listen; jeder Eintrag öffnet den Berichtsdialog
- * mit dieser Art. context(): { person, family } – was gerade angezeigt wird (zum Vorbelegen).
+ * Auswertung (Menü am Ende der Leiste): Statistik, Berichte (Untermenü), Verwandtschaftsrechner;
+ * Bearbeiter: + Änderungsprotokoll, Fehlersuche.
+ *   context(): { person, family } – was gerade angezeigt wird (zum Vorbelegen der Berichte)
+ *   on:        { statistics, relationship }
  */
-export function useReportsMenu({ context }) {
-  const item = (kind, icon) => ({ label: t('reports.kinds.' + kind) + '…', icon, disabled: !currentTreeId.value,
-                                  command: () => openReports(kind, context()) })
-  return computed(() => [
-    item('ancestors',   'pi pi-list'),
-    item('pedigree',    'pi pi-sitemap'),
-    item('descendants', 'pi pi-share-alt'),
-    item('family',      'pi pi-users'),
-    item('person',      'pi pi-id-card'),
-    { separator: true },
-    item('familybook',  'pi pi-book'),
-    item('births',      'pi pi-star'),
-    item('baptisms',    'pi pi-sun'),
-    item('marriages',   'pi pi-heart'),
-    item('deaths',      'pi pi-minus-circle'),
-    item('occupations', 'pi pi-briefcase'),
-    item('burials',     'pi pi-map-marker'),
-  ])
+export function useAnalysisMenu({ context, on }) {
+  const report = (kind, icon) => ({ label: t('reports.kinds.' + kind) + '…', icon, command: () => openReports(kind, context()) })
+  return computed(() => {
+    const noTree = !currentTreeId.value
+    return [
+      { label: t('nav.statistics'), icon: 'pi pi-chart-bar', disabled: noTree, command: on.statistics },
+      { label: t('reports.menu'),   icon: 'pi pi-print',     disabled: noTree, items: [
+        report('ancestors',   'pi pi-list'),
+        report('pedigree',    'pi pi-sitemap'),
+        report('descendants', 'pi pi-share-alt'),
+        report('family',      'pi pi-users'),
+        report('person',      'pi pi-id-card'),
+        { separator: true },
+        report('familybook',  'pi pi-book'),
+        report('births',      'pi pi-star'),
+        report('baptisms',    'pi pi-sun'),
+        report('marriages',   'pi pi-heart'),
+        report('deaths',      'pi pi-minus-circle'),
+        report('occupations', 'pi pi-briefcase'),
+        report('burials',     'pi pi-map-marker'),
+      ] },
+      { label: t('kinship.menu'),   icon: 'pi pi-share-alt', disabled: noTree, command: on.relationship },
+      { separator: true, visible: canEdit.value },
+      { label: t('changes.menu'),   icon: 'pi pi-history',   visible: canEdit.value, disabled: noTree, command: () => openChangeLog() },
+      { label: t('checks.menu'),    icon: 'pi pi-exclamation-triangle', visible: canEdit.value, disabled: noTree,
+        command: () => { showChecks.value = true } },
+    ]
+  })
 }

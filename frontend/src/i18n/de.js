@@ -16,6 +16,7 @@ export default {
     repositories: 'Archive',
     media: 'Medien',
     statistics: 'Statistik',
+    analysis: 'Auswertung',
   },
   action: {
     yes:         'Ja',
@@ -951,7 +952,7 @@ export default {
     loadError:   'Stammbaum konnte nicht geladen werden.',
   },
   file: {
-    menu:          'Datei',
+    chooseTree:    'Stammbaum wählen',
     open:          'Stammbaum laden…',
     new:           'Neuer Stammbaum…',
     importGedcom:  'GEDCOM importieren…',

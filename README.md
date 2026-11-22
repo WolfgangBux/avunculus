@@ -62,7 +62,7 @@ Uploads (GEDCOM files, media) are sent in small pieces, so the host's upload lim
 2. Open the database in phpMyAdmin (or your host's equivalent), choose **Import** and import `database/schema.sql` from the archive.
 3. Rename `backend/.env.example` to `backend/.env` and enter the database details (see [Configuration](#configuration)).
 4. Upload the contents of the archive to the folder your (sub)domain points to, or to a new subfolder of your website (e.g. `genealogy/`). Avunculus finds out by itself where it is installed.
-5. Open the address in your browser and create the first administrator account. This is only possible while no user exists. Then create a tree with **File → New**, or import one with **File → Import GEDCOM**.
+5. Open the address in your browser and create the first administrator account. This is only possible while no user exists. Then create a tree with **Choose a tree → New tree** at the top left, or import one with **Choose a tree → Import GEDCOM**.
 
 Avunculus stores media files in `data/media/`. PHP needs write permission there; the folder is created on the first upload.
 

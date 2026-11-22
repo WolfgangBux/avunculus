@@ -1,4 +1,5 @@
 <script setup>
+import SourceSwitch from './SourceSwitch.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import Button from 'openvue/button'
 import IconField from 'openvue/iconfield'
@@ -13,7 +14,7 @@ const props = defineProps({
   refresh:    Number,
   selectedId: { type: [Number, String], default: null },
 })
-const emit = defineEmits(['edit', 'create', 'deleted'])
+const emit = defineEmits(['edit', 'create', 'deleted', 'switch'])
 
 const ask = useAsk()
 
@@ -63,7 +64,8 @@ watch(() => [props.selectedId, filtered.value.length], async () => {
 <template>
   <div class="card">
     <div class="list-header">
-      <h2 class="card-title">{{ t('repository.title') }}</h2>
+      <h2 class="sr-only">{{ t('repository.title') }}</h2>
+      <SourceSwitch active="repositories" @switch="v => emit('switch', v)" />
       <span v-if="repos.length" class="list-count">
         {{ query ? t('person.list.count', { n: filtered.length, total: repos.length }) : t('repository.total', { n: repos.length }) }}
       </span>
