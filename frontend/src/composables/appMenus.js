@@ -9,10 +9,11 @@ import { showChecks } from './checks.js'
 import { openReports } from './reports.js'
 
 /**
- * Baum-Menü (Knopf mit dem Namen des geöffneten Baums). Alle: Öffnen; Bearbeiter: + Export; Admin: + Neu, Import, Verwandten-Baum.
+ * Baum-Menü (Knopf mit dem Namen des geöffneten Baums). Alle: Öffnen; Bearbeiter: + Export;
+ * Admin: + Neu, Import, Verwandten-Baum, öffentliche Freigabe des geöffneten Baums.
  *   currentTree:   Ref des geöffneten Baums (Medienanzahl für „Export mit Medien“)
  *   relativesFrom: Getter der Person, aus deren Verwandten ein neuer Baum werden kann (oder null)
- *   on:            { open, new, import, relativesTree(person) }
+ *   on:            { open, new, import, relativesTree(person), togglePublic }
  */
 export function useTreeMenu({ currentTree, relativesFrom, on }) {
   return computed(() => [
@@ -25,6 +26,9 @@ export function useTreeMenu({ currentTree, relativesFrom, on }) {
     { label: t('file.exportGedcomMedia'), icon: 'pi pi-images', visible: canEdit.value, disabled: !currentTree.value?.media_count,
       command: () => exportGedcom({ media: true }) },
     { separator: true, visible: isAdmin.value },
+    { label: t(currentTree.value?.is_public ? 'privacy.makePrivate' : 'privacy.makePublic'),
+      icon: currentTree.value?.is_public ? 'pi pi-lock' : 'pi pi-globe',
+      visible: isAdmin.value && !!currentTree.value, command: on.togglePublic },
     { label: t('relativesTree.menu'), icon: 'pi pi-sitemap', visible: isAdmin.value,
       disabled: !relativesFrom()?.id, command: () => on.relativesTree(relativesFrom()) },
   ])

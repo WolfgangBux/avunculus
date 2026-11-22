@@ -5,7 +5,7 @@ import Toast from 'openvue/toast'
 import ConfirmDialog from 'openvue/confirmdialog'
 import Menu from 'openvue/menu'
 import TieredMenu from 'openvue/tieredmenu'
-import { fetchTrees, setTreeStartPerson } from './api/trees.js'
+import { fetchTrees, setTreeStartPerson, setTreePublic } from './api/trees.js'
 import { currentTreeId, setCurrentTree, storedTreeId } from './trees.js'
 import TreeOpenDialog     from './components/TreeOpenDialog.vue'
 import TreeNewDialog      from './components/TreeNewDialog.vue'
@@ -75,8 +75,22 @@ export default defineComponent({
         new:    () => { showNew.value = true },
         import: () => { showImport.value = true },
         relativesTree: p => openRelativesTree(p),
+        togglePublic: () => toggleTreePublic(),
       },
     })
+
+    // Geöffneten Baum öffentlich freigeben bzw. die Freigabe zurückziehen (auch in „Stammbaum laden“)
+    async function toggleTreePublic() {
+      const tree = currentTree.value
+      if (!tree) return
+      try {
+        await setTreePublic(tree.id, !tree.is_public)
+        notify.success(t(tree.is_public ? 'privacy.madePrivate' : 'privacy.madePublic', { name: tree.name }))
+        await loadTrees()
+      } catch {
+        notify.error(t('action.saveError'))
+      }
+    }
 
     // ── Auswertung: Statistik, Berichte (vorbelegt mit der gerade gezeigten Person bzw. Familie), Werkzeuge ──
     const analysisMenu      = ref(null)
@@ -472,9 +486,11 @@ export default defineComponent({
     </div>
   </div>
 
-  <button class="tree-btn" aria-haspopup="true" aria-controls="tree-menu" :title="currentTree?.name"
+  <button class="tree-btn" aria-haspopup="true" aria-controls="tree-menu"
+    :title="currentTree ? currentTree.name + (currentTree.is_public && isAdmin ? ' – ' + t('privacy.public') : '') : ''"
     @click="treeMenu.toggle($event)">
-    <i class="pi pi-sitemap" />
+    <!-- Weltkugel: der Baum ist öffentlich freigegeben (für Admins sichtbar, wie in „Stammbaum laden“) -->
+    <i :class="['pi', currentTree?.is_public && isAdmin ? 'pi-globe' : 'pi-sitemap']" />
     <span>{{ currentTree?.name ?? t('file.chooseTree') }}</span>
     <i class="pi pi-angle-down" />
   </button>
