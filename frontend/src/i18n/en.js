@@ -523,6 +523,7 @@ export default {
     ancestorOptions: { 0: 'none', 1: 'parents', 2: 'parents and grandparents' },
     gen1:          'parents',
     gen2:          'grandparents',
+    gray:          'Black-and-white map',
   },
   relEvents: {
     descriptors: { religious: 'religious', civil: 'civil' },

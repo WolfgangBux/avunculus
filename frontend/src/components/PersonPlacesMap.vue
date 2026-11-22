@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import Select from 'openvue/select'
+import ToggleSwitch from 'openvue/toggleswitch'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { fetchPersonPlaces } from '../api/persons.js'
@@ -28,6 +29,10 @@ const DESCRIPTOR_TYPES = ['EVEN', 'FACT', 'IDNO']
 const ANCESTORS_KEY = 'avunculus.personMap.ancestors'
 const ancestors = ref((() => { try { return Math.min(2, Number(localStorage.getItem(ANCESTORS_KEY)) || 0) } catch { return 0 } })())
 watch(ancestors, v => { try { localStorage.setItem(ANCESTORS_KEY, String(v)) } catch { /* kein Storage */ } })
+// Hintergrundkarte schwarz-weiß: Kreise und Linien heben sich besser ab
+const GRAY_KEY = 'avunculus.personMap.gray'
+const gray = ref((() => { try { return localStorage.getItem(GRAY_KEY) === '1' } catch { return false } })())
+watch(gray, v => { try { localStorage.setItem(GRAY_KEY, v ? '1' : '0') } catch { /* kein Storage */ } })
 const ancestorOptions = computed(() => [0, 1, 2].map(value => ({ value, label: t('personMap.ancestorOptions.' + value) })))
 
 const data = ref(null)
@@ -170,15 +175,22 @@ onBeforeUnmount(() => { map?.remove(); map = null })
     <div class="person-map-tools">
       {{ t('personMap.ancestors') }}
       <Select v-model="ancestors" :options="ancestorOptions" option-label="label" option-value="value" size="small" />
+      <label v-if="places.length" class="person-map-gray">
+        <ToggleSwitch v-model="gray" />
+        {{ t('personMap.gray') }}
+      </label>
     </div>
-    <div v-if="places.length" ref="el" class="map-canvas person-map-canvas" @click="onClick" />
+    <!-- Klasse für Schwarz-Weiß am umgebenden Div: am Karten-Div selbst würde Vue Leaflets eigene Klassen überschreiben -->
+    <div v-if="places.length" :class="{ 'map-gray': gray }">
+      <div ref="el" class="map-canvas person-map-canvas" @click="onClick" />
+    </div>
     <p v-if="places.length" class="stats-sub map-legend">
-      <span class="map-key map-key-solid" /> {{ t('personMap.own') }}
-      <template v-if="hasFamily"><span class="map-key map-key-family" /> {{ t('personMap.family') }}</template>
-      <template v-if="hasGen(1)"><span class="map-key map-key-gen1" /> {{ t('personMap.gen1') }}</template>
-      <template v-if="hasGen(2)"><span class="map-key map-key-gen2" /> {{ t('personMap.gen2') }}</template>
-      <template v-if="hasApprox"><span class="map-key map-key-approx" /> {{ t('stats.map.legendApprox') }}</template>
-      · {{ t('personMap.hint') }}
+      <span class="map-legend-item"><span class="map-key map-key-solid" /> {{ t('personMap.own') }}</span>
+      <span v-if="hasFamily" class="map-legend-item"><span class="map-key map-key-family" /> {{ t('personMap.family') }}</span>
+      <span v-if="hasGen(1)" class="map-legend-item"><span class="map-key map-key-gen1" /> {{ t('personMap.gen1') }}</span>
+      <span v-if="hasGen(2)" class="map-legend-item"><span class="map-key map-key-gen2" /> {{ t('personMap.gen2') }}</span>
+      <span v-if="hasApprox" class="map-legend-item"><span class="map-key map-key-approx" /> {{ t('stats.map.legendApprox') }}</span>
+      <span>· {{ t('personMap.hint') }}</span>
     </p>
     <p v-if="without.length" class="field-hint">
       {{ t('personMap.withoutCoords') }}

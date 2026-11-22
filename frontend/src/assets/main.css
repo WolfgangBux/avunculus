@@ -1823,6 +1823,9 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
 .map-dot        { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .3rem; vertical-align: 0; }
 .person-map { margin-top: 1rem; }
 .map-arrow { background: none; border: none; opacity: .85; }
+.person-map-gray { display: flex; align-items: center; gap: .45rem; margin-left: .8rem; cursor: pointer; }
+.map-gray .leaflet-tile-pane { filter: grayscale(1); }
+.map-legend-item { white-space: nowrap; }
 .map-arrow svg { display: block; }
 .person-map-tools { display: flex; align-items: center; justify-content: flex-end; gap: .45rem; font-size: .8rem; color: var(--color-muted); margin: -.2rem 0 .45rem; }
 .person-map-canvas { height: 360px; }

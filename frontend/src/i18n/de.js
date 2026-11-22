@@ -523,6 +523,7 @@ export default {
     ancestorOptions: { 0: 'keine', 1: 'Eltern', 2: 'Eltern und Großeltern' },
     gen1:          'Eltern',
     gen2:          'Großeltern',
+    gray:          'Karte schwarz-weiß',
   },
   relEvents: {
     descriptors: { religious: 'kirchlich', civil: 'standesamtlich' },
