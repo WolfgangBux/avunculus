@@ -12,4 +12,4 @@ export function searchPersons(q = '', { limit = 50, offset = 0, exclude = [], ar
   if (around) params.set('around', String(around))   // Seite, auf der diese Person steht
   return request('GET', `/persons/search?${params}`)
 }
-export const fetchPersonPlaces = (id) => request('GET',    `/persons/${id}/places`)
+export const fetchPersonPlaces = (id, ancestors = 0) => request('GET', `/persons/${id}/places` + (ancestors ? `?ancestors=${ancestors}` : ''))

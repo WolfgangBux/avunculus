@@ -517,8 +517,12 @@ export default {
     title:         'Orte',
     own:           'eigene Ereignisse',
     family:        'Familienereignisse',
-    hint:          'Gestrichelte Linie: Lebensweg in zeitlicher Folge. Klick auf einen Kreis zeigt die Ereignisse.',
+    hint:          'Gestrichelte Linien: Lebenswege in zeitlicher Folge. Klick auf einen Kreis zeigt die Ereignisse.',
     withoutCoords: 'Ohne Koordinaten, daher nicht auf der Karte:',
+    ancestors:     'Vorfahren',
+    ancestorOptions: { 0: 'keine', 1: 'Eltern', 2: 'Eltern und Großeltern' },
+    gen1:          'Eltern',
+    gen2:          'Großeltern',
   },
   relEvents: {
     descriptors: { religious: 'kirchlich', civil: 'standesamtlich' },

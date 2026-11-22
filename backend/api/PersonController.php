@@ -515,9 +515,60 @@ class PersonController extends TreeScopedController
             ORDER BY sort_order, id
         ");
         $stmt->execute([$id, $id]);
-        $events = $stmt->fetchAll();
+        $events = array_map(fn($e) => $e + ['generation' => 0, 'person_id' => null], $stmt->fetchAll());
 
-        // Partner je Familie (für „Heirat mit …“)
+        // Auf Wunsch Vorfahren: Generation 1 = Eltern, 2 = Großeltern – je ihre eigenen Ereignisse
+        // und die Ereignisse der Elternfamilie (Heirat der Eltern gehört zu Generation 1)
+        $generations = max(0, min(2, (int) ($_GET['ancestors'] ?? 0)));
+        $children    = [$id];
+        $ancestorIds = [];
+        for ($g = 1; $g <= $generations && $children; $g++) {
+            $in = implode(',', array_fill(0, count($children), '?'));
+            $q  = $this->db->prepare("
+                SELECT DISTINCT c.family_id FROM family_members c
+                WHERE c.role = 'CHIL' AND c.person_id IN ($in)" . Privacy::familySql('c.family_id'));
+            $q->execute($children);
+            $families = array_map('intval', $q->fetchAll(PDO::FETCH_COLUMN));
+            if (!$families) break;
+            $fin = implode(',', array_fill(0, count($families), '?'));
+
+            $q = $this->db->prepare("SELECT DISTINCT person_id FROM family_members WHERE family_id IN ($fin) AND role <> 'CHIL'");
+            $q->execute($families);
+            $children = array_values(array_filter(array_map('intval', $q->fetchAll(PDO::FETCH_COLUMN)),
+                                                  fn($p) => !Privacy::hides($p) && !isset($ancestorIds[$p])));
+            foreach ($children as $p) $ancestorIds[$p] = $g;
+
+            $q = $this->db->prepare("
+                SELECT 'family' AS scope, e.event_type, e.event_date, e.event_descriptor, e.place_id, e.family_id, e.sort_order, e.id,
+                       $g AS generation, NULL AS person_id
+                FROM family_events e WHERE e.family_id IN ($fin) AND e.place_id IS NOT NULL
+                ORDER BY e.sort_order, e.id");
+            $q->execute($families);
+            array_push($events, ...$q->fetchAll());
+
+            if ($children) {
+                $pin = implode(',', array_fill(0, count($children), '?'));
+                $q = $this->db->prepare("
+                    SELECT 'person' AS scope, e.event_type, e.event_date, e.event_descriptor, e.place_id, NULL AS family_id, e.sort_order, e.id,
+                           $g AS generation, e.person_id
+                    FROM person_events e WHERE e.person_id IN ($pin) AND e.place_id IS NOT NULL
+                    ORDER BY e.person_id, e.sort_order, e.id");
+                $q->execute($children);
+                array_push($events, ...$q->fetchAll());
+            }
+        }
+
+        // Namen der Vorfahren
+        $ancestorNames = [];
+        if ($ancestorIds) {
+            $ids = array_keys($ancestorIds);
+            $in  = implode(',', array_fill(0, count($ids), '?'));
+            $q   = $this->db->prepare("SELECT p.id AS person_id, " . self::nameSql('p.id') . " AS display_name FROM persons p WHERE p.id IN ($in)");
+            $q->execute($ids);
+            foreach ($q->fetchAll() as $r) $ancestorNames[(int) $r['person_id']] = Privacy::maskRef($r)['display_name'];
+        }
+
+        // Partner je Familie (für „Heirat mit …“; bei Vorfahren-Familien beide Partner)
         $partners = [];
         $familyIds = array_values(array_unique(array_filter(array_map(fn($e) => (int) $e['family_id'], $events))));
         if ($familyIds) {
@@ -553,7 +604,10 @@ class PersonController extends TreeScopedController
                 'event_date' => $e['event_date'],
                 'event_descriptor' => $e['event_descriptor'],
                 'family_id'  => $e['family_id'] !== null ? (int) $e['family_id'] : null,
-                'partner'    => $e['family_id'] !== null ? implode(', ', $partners[(int) $e['family_id']] ?? []) : null,
+                'partner'    => $e['family_id'] !== null ? implode((int) $e['generation'] ? ' & ' : ', ', $partners[(int) $e['family_id']] ?? []) : null,
+                'generation' => (int) $e['generation'],
+                'person'     => $e['person_id'] !== null ? ($ancestorNames[(int) $e['person_id']] ?? '') : null,
+                'person_id'  => $e['person_id'] !== null ? (int) $e['person_id'] : null,
             ];
             if (isset($coords[$pid])) {
                 [$lat, $lon, $approx] = $coords[$pid];

@@ -20,6 +20,8 @@
   --color-primary-dark:  #c9520f;
   --color-primary-soft:  #fdeee4;
   --color-family:        #3b7dd8;   /* Familienorte auf der Personenkarte */
+  --color-gen1:          #2e9e5b;   /* Orte der Eltern auf der Personenkarte */
+  --color-gen2:          #8e5cc8;   /* Orte der Großeltern */
   --focus-ring:          0 0 0 3px rgba(232,100,27,.18);
 
   /* Geschlechter-Farben (Avatar, Karten, Chips) */
@@ -1816,7 +1818,11 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
 .map-key-solid  { background: color-mix(in srgb, var(--color-primary) 55%, transparent); border: 1px solid var(--color-surface); }
 .map-key-approx { background: color-mix(in srgb, var(--color-primary) 15%, transparent); border: 1.5px dashed var(--color-primary); margin-left: .5rem; }
 .map-key-family { background: color-mix(in srgb, var(--color-family) 80%, transparent); border: 1px solid var(--color-surface); margin-left: .5rem; }
+.map-key-gen1   { background: color-mix(in srgb, var(--color-gen1) 80%, transparent); border: 1px solid var(--color-surface); margin-left: .5rem; }
+.map-key-gen2   { background: color-mix(in srgb, var(--color-gen2) 80%, transparent); border: 1px solid var(--color-surface); margin-left: .5rem; }
+.map-dot        { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .3rem; vertical-align: 0; }
 .person-map { margin-top: 1rem; }
+.person-map-tools { display: flex; align-items: center; justify-content: flex-end; gap: .45rem; font-size: .8rem; color: var(--color-muted); margin: -.2rem 0 .45rem; }
 .person-map-canvas { height: 360px; }
 .map-popup { font-size: .82rem; line-height: 1.4; display: flex; flex-direction: column; gap: .3rem; }
 .map-open {
