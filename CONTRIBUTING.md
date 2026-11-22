@@ -63,6 +63,10 @@ These are the things that are easy to get wrong in this code base.
 - **Saving child rows** (names, events, citations, associations): use `RowSync`, so existing rows keep their IDs. The frontend sends the IDs along and takes over the server's response after saving.
 - **Change log**: write requests are recorded centrally, so new endpoints are logged automatically. If you add fields that should show up in the field-level history, add them to `backend/lib/ChangeDiff.php` and to `changes.fields` / `changes.parts` in the translations.
 
+### .htaccess
+
+The shipped `.htaccess` has a section between `# BEGIN Avunculus` and `# END Avunculus`; the updater replaces only that section and keeps the operator's own lines (`Updater::mergeHtaccess`). Put every change to the shipped rules inside the markers, and keep the marker lines unchanged.
+
 ### Database changes
 
 Existing installations are updated by numbered migrations; never ask users to run SQL by hand.

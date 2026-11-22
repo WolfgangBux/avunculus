@@ -12,7 +12,7 @@ declare(strict_types=1);
  *   3. Wartungsmodus an; backend/ und public/ als Ganzes austauschen, die übrigen Dateien einzeln überschreiben.
  *      Die alte Fassung bleibt in data/updates/previous/; schlägt ein Schritt fehl, wird zurückgetauscht.
  *   4. Wartungsmodus aus. Die Datenbank-Migrationen laufen bei der nächsten Anfrage (neuer Code, Migrations::run).
- * data/ und backend/.env bleiben unberührt.
+ * data/ und backend/.env bleiben unberührt; in .htaccess wird nur der Avunculus-Bereich ersetzt (mergeHtaccess).
  */
 final class Updater
 {
@@ -160,7 +160,13 @@ final class Updater
                     array_unshift($undo, fn() => @unlink($target));
                 }
                 @mkdir(dirname($target), 0775, true);
-                if (!copy("$src/$rel", $target)) throw new RuntimeException("$rel kann nicht geschrieben werden");
+                if ($rel === '.htaccess' && is_file("$backup/$rel")) {
+                    // eigene Einträge des Betreibers behalten, nur den Avunculus-Bereich ersetzen
+                    $merged = self::mergeHtaccess((string) file_get_contents("$backup/$rel"), (string) file_get_contents("$src/$rel"), $version);
+                    if (file_put_contents($target, $merged) === false) throw new RuntimeException('.htaccess kann nicht geschrieben werden');
+                } elseif (!copy("$src/$rel", $target)) {
+                    throw new RuntimeException("$rel kann nicht geschrieben werden");
+                }
             }
         } catch (\Throwable $e) {
             foreach ($undo as $step) {
@@ -185,6 +191,66 @@ final class Updater
     {
         $flag = AppInfo::dataDir() . '/maintenance.flag';
         return is_file($flag) && filemtime($flag) > time() - 600;
+    }
+
+    // ── .htaccess ────────────────────────────────────────────────────────────────
+
+    public const HTACCESS_BEGIN = '# BEGIN Avunculus';
+    public const HTACCESS_END   = '# END Avunculus';
+
+    /**
+     * Neue .htaccess aus der installierten ($current) und der mitgelieferten ($new):
+     * Der Bereich zwischen „# BEGIN Avunculus“ und „# END Avunculus“ kommt aus $new, alles davor und
+     * danach aus $current – dort stehen die Einträge des Betreibers (z. B. PHP-Einstellungen des Hosters).
+     *
+     * Ältere Installationen haben noch keine Markierungen: Dann gelten alle Zeilen von $current, die im
+     * neuen Avunculus-Bereich nicht vorkommen (ohne Kommentare und Leerzeilen), als eigene Einträge und
+     * werden unter dem Bereich angehängt.
+     */
+    public static function mergeHtaccess(string $current, string $new, string $version = ''): string
+    {
+        $block = self::htaccessBlock($new);
+        if ($block === null) return $new;   // mitgelieferte Datei ohne Markierungen: unverändert übernehmen
+
+        $current = str_replace(["\r\n", "\r"], "\n", $current);
+        if ($range = self::markerRange($current)) {
+            [$b, $end] = $range;
+            return substr($current, 0, $b) . $block . "\n" . substr($current, $end);
+        }
+
+        $known  = array_flip(array_map('trim', explode("\n", $block)));
+        $custom = [];
+        foreach (preg_split('/\r\n|\r|\n/', $current) as $line) {
+            $t = trim($line);
+            if ($t === '' || str_starts_with($t, '#') || isset($known[$t])) continue;
+            $custom[] = rtrim($line);
+        }
+        $out = $block . "\n";
+        if ($custom) {
+            $out .= "\n# Eigene Einträge" . ($version !== '' ? " (beim Update auf $version übernommen)" : '') . "\n"
+                  . implode("\n", $custom) . "\n";
+        }
+        return $out;
+    }
+
+    /** Avunculus-Bereich einer .htaccess samt Markierungszeilen, ohne abschließenden Zeilenumbruch */
+    private static function htaccessBlock(string $text): ?string
+    {
+        $text  = str_replace(["\r\n", "\r"], "\n", $text);
+        $range = self::markerRange($text);
+        return $range ? rtrim(substr($text, $range[0], $range[1] - $range[0])) : null;
+    }
+
+    /**
+     * Anfang der Zeile „# BEGIN Avunculus…“ und Ende der Zeile „# END Avunculus“ (samt Zeilenumbruch).
+     * Nur ganze Zeilen zählen – der Hinweistext im Bereich erwähnt die Markierung ebenfalls.
+     * @return array{0: int, 1: int}|null
+     */
+    private static function markerRange(string $text): ?array
+    {
+        if (!preg_match('/^' . preg_quote(self::HTACCESS_BEGIN, '/') . '\b.*$/m', $text, $b, PREG_OFFSET_CAPTURE)) return null;
+        if (!preg_match('/^' . preg_quote(self::HTACCESS_END, '/') . '[ \t]*(\n|$)/m', $text, $e, PREG_OFFSET_CAPTURE, $b[0][1])) return null;
+        return [$b[0][1], $e[0][1] + strlen($e[0][0])];
     }
 
     // ── Hilfsfunktionen ──────────────────────────────────────────────────────────

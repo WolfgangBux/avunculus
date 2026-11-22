@@ -1,3 +1,7 @@
+# BEGIN Avunculus – dieser Bereich wird bei jedem Update ersetzt.
+# Eigene Einträge (z. B. Einstellungen Ihres Hosters) bitte unterhalb von „# END Avunculus“ eintragen,
+# dort bleiben sie bei Updates erhalten.
+
 # Avunculus auf einem Apache-Webhosting: jede Anfrage geht an router.php
 # (/api/* ans Backend, sonst Dateien aus public/ bzw. index.html).
 # So werden backend/.env, data/, database/ usw. nie direkt ausgeliefert.
@@ -20,3 +24,4 @@ DirectoryIndex router.php
 <IfModule pagespeed_module>
     ModPagespeed off
 </IfModule>
+# END Avunculus

@@ -79,17 +79,21 @@ The `.htaccess` file sends every request through `router.php`, which only serves
 
 Environment variables, where set, take precedence over `backend/.env`.
 
+#### Your own server settings
+
+Some hosts need extra settings, for example to write a PHP error log. Put them in `.htaccess` **below the line `# END Avunculus`**: updates only replace the part between `# BEGIN Avunculus` and `# END Avunculus` and keep everything else. Settings that are purely PHP (`error_log`, `memory_limit` …) can also go into a file `.user.ini` in the installation folder, if your host supports it; Avunculus never ships or changes that file.
+
 ### Upgrading
 
 Avunculus checks GitHub for new releases at most once a day. When one is available, administrators see a dot on their user menu and an entry **Update to … available**. The update dialog shows the release notes and installs the new version with one click:
 
 1. The release archive is downloaded and checked against its SHA-256 checksum.
-2. The program files are replaced. `backend/.env` and `data/` (your media files) are kept, and the previous version is kept in `data/updates/previous/`. If anything goes wrong, the previous version is restored.
+2. The program files are replaced. `backend/.env`, `data/` (your media files) and your own entries in `.htaccess` are kept, and the previous version is kept in `data/updates/previous/`. If anything goes wrong, the previous version is restored.
 3. The page reloads, and any database changes the new version needs are applied automatically.
 
 Please back up your database (phpMyAdmin → **Export**) before updating; the dialog asks you to confirm this.
 
-The automatic installation needs PHP to be allowed to change the program files and to download files (`curl` or `allow_url_fopen`). If that is not possible on your host, the dialog says so. Then update by hand: download the new release and upload all files, overwriting the old ones. Keep your `backend/.env` and `data/`. Database changes are applied automatically on the next page load in this case too.
+The automatic installation needs PHP to be allowed to change the program files and to download files (`curl` or `allow_url_fopen`). If that is not possible on your host, the dialog says so. Then update by hand: download the new release and upload all files, overwriting the old ones. Keep your `backend/.env` and `data/`, and copy your own lines from the old `.htaccess` (below `# END Avunculus`) into the new one. Database changes are applied automatically on the next page load in this case too.
 
 To turn off the update check, set `UPDATE_CHECK=0` in `backend/.env`.
 
