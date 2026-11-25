@@ -11,14 +11,14 @@ Avunculus is a web application for recording, researching and sharing family his
 **Key features**
 
 - **Several family trees** in one installation, each with its own people, families, sources and media. Places are shared by all trees.
-- **People** with multiple names, events and facts (birth, baptism, occupation, residence …), citations with page, transcription, link and quality rating, associated people (godparents, witnesses) and media. All forms save automatically as you type.
+- **People** with multiple names, events and facts (birth, baptism, occupation, residence …), citations with page, transcription, the original (scan or photo of the entry, with the transcribed area marked), link and quality rating, associated people (godparents, witnesses) and media. All forms save automatically as you type.
 - **Surname overview** as the way into large trees: surnames by initial letter with counts, a cloud of the most common names, everyone bearing a name, and its branches (the descendants who carry the name on, with their partners).
 - **Quick search** (Ctrl+K) for people, places, sources and media from anywhere in the app.
 - **Families** with partners, children (including pedigree such as adoption), family events and their own citations.
 - **Tree view** with ancestors, siblings and descendants, and a map of each person's places with their course of life, optionally with parents and grandparents.
 - **Sources and repositories**, with a list of every event that cites a source.
 - **Place hierarchy** (village → municipality → district …) with alternative names, coordinates, GOV identifiers, Wikidata matching and merging of duplicate places.
-- **Media library** for photos, scans, PDFs, audio and video, linked to people, families, events and sources. People can be marked on a photo with a rectangle or oval; their thumbnail then shows just that part. Markings from Lightroom, digiKam and other programs (XMP regions) are offered as suggestions, markings made in Avunculus are written into JPEG files, and GEDCOM 7 `CROP` is imported.
+- **Media library** for photos, scans, PDFs, audio and video, linked to people, families, events, sources and citations. Media open in a zoomable lightbox. With its mark tool, people are marked on a photo with a rectangle or oval, and further people can be picked from the person list and linked to the photo in one go; their thumbnail then shows just that part. Markings from Lightroom, digiKam and other programs (XMP regions) are offered as suggestions, markings made in Avunculus are written into JPEG files, and GEDCOM 7 `CROP` is imported. GEDCOM media stay where they are in the file: on a citation (`SOUR.OBJE`), an event or a person.
 - **GEDCOM import** (5.5, 5.5.1, 7.0; also ZIP/GEDZIP with media files) into a new tree or merged into an existing one, with duplicate detection and manual matching.
 - **GEDCOM export** (5.5.1, UTF-8), optionally as a ZIP archive including all media.
 - **Relatives tree**: create a new tree from all blood relatives of a person and their partners.
