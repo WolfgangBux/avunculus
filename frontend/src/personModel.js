@@ -96,9 +96,11 @@ const str      = v => v ?? ''
 // crop: Ausschnitt der Person auf dem Bild (nur Anzeige; gesetzt wird er über media/{id}/region, nicht mit der Person)
 const mediaItem = m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type, is_primary: !!m.is_primary, crop: m.crop ?? null })
 /** Medien einer Quellenangabe (Scan des zitierten Eintrags) – für alle Formulare mit Quellenangaben */
-export const citationMediaFromApi = c => (c.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type }))
-/** Quellenangabe zum Speichern: Medien nur als IDs */
-export const citationToApi = c => ({ ...c, media: (c.media ?? []).map(m => ({ id: m.id })) })
+// crop: Bereich, den die Transkription wiedergibt (gespeichert mit der Quellenangabe)
+export const citationMediaFromApi = c => (c.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type, crop: m.crop ?? null }))
+const citationMediaToApi = list => (list ?? []).map(m => ({ id: m.id, crop: m.crop ?? null }))
+/** Quellenangabe zum Speichern: Medien nur mit ID und markiertem Bereich */
+export const citationToApi = c => ({ ...c, media: citationMediaToApi(c.media) })
 const citationFromApi = c => ({
   id: c.id ?? null,
   source_id: str(c.source_id), source_label: c.source_abbreviation || c.source_title || '', page: str(c.page), transcription: str(c.transcription), url: str(c.url),
@@ -190,7 +192,7 @@ export function personToApi(s) {
         transcription: c.transcription.trim() || null,
         url:           c.url.trim()           || null,
         quality:       c.quality ?? null,
-        media:         c.media.map(m => ({ id: m.id })),
+        media:         citationMediaToApi(c.media),
       })),
       media:        e.media.map(m => ({ id: m.id })),
       associations: associationsToApi(e.associations, false),

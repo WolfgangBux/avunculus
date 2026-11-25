@@ -517,7 +517,8 @@ final class GedcomImporter
             $rec  = preg_match('/^@[^@]+@$/', $this->value($o)) ? ($this->objes[$this->value($o)] ?? $o) : $o;
             $prim = strtoupper($this->value($this->child($o, '_PRIM')) ?: $this->value($this->child($rec, '_PRIM')));
             $item = ['id' => $id, 'is_primary' => $prim === 'Y' || $prim === 'YES'];
-            if ($kind === 'person' && ($crop = $this->cropOf($o, $id))) $item['crop'] = $crop;
+            // GEDCOM 7 CROP: bei Personen der Ausschnitt der Person, bei Quellenangaben der zitierte Bereich
+            if (($kind === 'person' || $kind === 'citation') && ($crop = $this->cropOf($o, $id))) $item['crop'] = $crop;
             $items[] = $item;
         }
         return $items;

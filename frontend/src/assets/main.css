@@ -1996,6 +1996,14 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
 }
 /* Original (Scan) einer Quellenangabe: unter der Transkription, gleich eingerückt */
 .view-cit-media { margin: .35rem 0 .1rem .9rem; }
+.view-cit-crops { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; margin: .35rem 0 .1rem .9rem; }
+/* markierter Bereich eines Originals in voller Auflösung (MediaCropView) */
+.media-crop {
+  position: relative; display: block; overflow: hidden;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface-alt); cursor: zoom-in;
+}
+.media-crop img { position: absolute; max-width: none; height: auto; display: block; }
 .form-toolbar { display: flex; justify-content: flex-end; margin: -.4rem 0 -.2rem; }
 .asso-view { padding: .1rem .85rem .6rem .85rem; }
 .view-cit-line { cursor: default; }

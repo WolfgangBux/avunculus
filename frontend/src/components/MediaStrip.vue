@@ -17,7 +17,8 @@ const props = defineProps({
   allowPrimary: { type: Boolean, default: false },   // Hauptbild wählbar (Person)
   size:         { type: String,  default: 'sm' },
   readonly:     { type: Boolean, default: false },   // nur anzeigen (Leseansicht)
-  regions:      { type: Boolean, default: false },   // Person auf Bildern markierbar (gespeicherte Person)
+  regions:      { type: Boolean, default: false },   // Bereich markierbar (Person auf dem Bild, Stelle einer Quellenangabe)
+  regionLabel:  { type: String,  default: '' },      // Beschriftung des Markieren-Knopfs (Standard: Person markieren)
 })
 const emit = defineEmits(['region'])
 const notify = useNotify()
@@ -83,7 +84,7 @@ async function onDrop(e) {
           :title="m.is_primary ? t('media.primary') : t('media.makePrimary')" :aria-label="t('media.makePrimary')"
           @click="makePrimary(i)"><i :class="['pi', m.is_primary ? 'pi-star-fill' : 'pi-star']" /></button>
         <button v-if="canEdit && regions && isImage(m)" type="button" :class="['icon-btn', { active: m.crop }]"
-          :title="t('media.region.markPerson')" :aria-label="t('media.region.markPerson')"
+          :title="regionLabel || t('media.region.markPerson')" :aria-label="regionLabel || t('media.region.markPerson')"
           @click="emit('region', m)"><i class="pi pi-expand" /></button>
         <button v-if="canEdit" type="button" class="icon-btn danger" :title="t('action.remove')" :aria-label="t('action.remove')"
           @click="remove(i)"><i class="pi pi-times" /></button>

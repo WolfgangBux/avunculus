@@ -7,9 +7,11 @@ declare(strict_types=1);
  * Jede Art hat eine eigene Tabelle (mit Fremdschlüsseln, damit Löschen aufräumt).
  *
  * Ein Medium in API-Antworten: { id, title, mime_type, width, height, is_primary } – bei Personen dazu
- * crop: Ausschnitt der Person auf dem Bild { left, top, width, height, shape } (Anteile 0–1) oder null.
+ * crop: Ausschnitt der Person auf dem Bild { left, top, width, height, shape } (Anteile 0–1) oder null,
+ * bei Quellenangaben crop: Bereich, den die Transkription wiedergibt (immer Rechteck) oder null.
  * Beim Speichern genügt [{ id, is_primary? }, …]; der Ausschnitt einer Person bleibt dabei erhalten
  * (er wird über PUT media/{id}/region gesetzt), außer ein Eintrag bringt selbst crop mit (Import).
+ * Bei Quellenangaben kommt der Bereich immer mit dem Eintrag (fehlt crop, gibt es keinen).
  */
 final class MediaLinks
 {
@@ -37,8 +39,15 @@ final class MediaLinks
 
     public function __construct(private readonly PDO $db, private readonly int $treeId) {}
 
-    /** Spalten des Ausschnitts in person_media */
+    /** Spalten des Ausschnitts in person_media bzw. (ohne Form) in den Medien der Quellenangaben */
     private const CROP_COLS = 'l.crop_left, l.crop_top, l.crop_width, l.crop_height, l.crop_shape';
+    private const CITATION_CROP_COLS = "l.crop_left, l.crop_top, l.crop_width, l.crop_height, 'rect' AS crop_shape";
+
+    /** Hat die Verknüpfung einen Ausschnitt? (Person auf dem Bild, Bereich einer Quellenangabe) */
+    private static function hasCrop(string $kind): bool
+    {
+        return $kind === 'person' || in_array($kind, self::CITATION_KINDS, true);
+    }
 
     /** @return array<int, list<array>> Besitzer-ID → Medien in Reihenfolge */
     public function fetch(string $kind, array $ownerIds): array
@@ -46,7 +55,11 @@ final class MediaLinks
         [$table, $col] = self::KINDS[$kind];
         $ownerIds = array_values(array_unique(array_filter(array_map('intval', $ownerIds))));
         if (!$ownerIds) return [];
-        $extra = $kind === 'person' ? 'l.is_primary, ' . self::CROP_COLS . ',' : '0 AS is_primary,';
+        $extra = match (true) {
+            $kind === 'person'   => 'l.is_primary, ' . self::CROP_COLS . ',',
+            self::hasCrop($kind) => '0 AS is_primary, ' . self::CITATION_CROP_COLS . ',',
+            default              => '0 AS is_primary,',
+        };
         $in    = implode(',', array_fill(0, count($ownerIds), '?'));
         $stmt  = $this->db->prepare("
             SELECT l.$col AS owner_id, $extra m.id, m.title, m.original_name, m.mime_type, m.width, m.height
@@ -57,7 +70,7 @@ final class MediaLinks
         $stmt->execute($ownerIds);
         $out = [];
         foreach ($stmt->fetchAll() as $r) {
-            $out[(int) $r['owner_id']][] = self::item($r) + ($kind === 'person' ? ['crop' => self::cropFromRow($r)] : []);
+            $out[(int) $r['owner_id']][] = self::item($r) + (self::hasCrop($kind) ? ['crop' => self::cropFromRow($r)] : []);
         }
         return $out;
     }
@@ -149,10 +162,14 @@ final class MediaLinks
         $valid = $this->validIds(array_map(fn($m) => is_array($m) ? ($m['id'] ?? 0) : $m, $items));
         if (!$valid) return;
         $isPerson = $kind === 'person';
-        $ins = $this->db->prepare($isPerson
-            ? "INSERT INTO $table ($col, media_id, is_primary, sort_order, crop_left, crop_top, crop_width, crop_height, crop_shape)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            : "INSERT INTO $table ($col, media_id, sort_order) VALUES (?, ?, ?)");
+        $withCrop = self::hasCrop($kind);
+        $ins = $this->db->prepare(match (true) {
+            $isPerson => "INSERT INTO $table ($col, media_id, is_primary, sort_order, crop_left, crop_top, crop_width, crop_height, crop_shape)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            $withCrop => "INSERT INTO $table ($col, media_id, sort_order, crop_left, crop_top, crop_width, crop_height)
+                          VALUES (?, ?, ?, ?, ?, ?, ?)",
+            default   => "INSERT INTO $table ($col, media_id, sort_order) VALUES (?, ?, ?)",
+        });
         $seen = [];
         $hasPrimary = false;
         foreach ($items as $m) {
@@ -164,6 +181,9 @@ final class MediaLinks
                 $hasPrimary = $hasPrimary || $primary;
                 $crop = is_array($m) ? self::normalizeCrop($m['crop'] ?? null) : null;
                 $ins->execute([$ownerId, $id, (int) $primary, min($order++, 255), ...self::cropValues($crop)]);
+            } elseif ($withCrop) {
+                $crop = is_array($m) ? self::normalizeCrop($m['crop'] ?? null) : null;
+                $ins->execute([$ownerId, $id, min($order++, 255), ...array_slice(self::cropValues($crop), 0, 4)]);
             } else {
                 $ins->execute([$ownerId, $id, min($order++, 255)]);
             }

@@ -16,7 +16,7 @@ CREATE TABLE settings (
     name  VARCHAR(64) NOT NULL PRIMARY KEY,
     value TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-INSERT INTO settings (name, value) VALUES ('schema_version', '4');
+INSERT INTO settings (name, value) VALUES ('schema_version', '5');
 
 -- Benutzer; ohne Anmeldung ist man Besucher (sieht nur öffentliche Bäume, Lebende anonymisiert)
 CREATE TABLE users (
@@ -381,12 +381,18 @@ CREATE TABLE source_media (
     INDEX idx_media (media_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Medien an Quellenangaben (GEDCOM SOUR.OBJE), z. B. der Scan des zitierten Kirchenbucheintrags
+-- Medien an Quellenangaben (GEDCOM SOUR.OBJE), z. B. der Scan des zitierten Kirchenbucheintrags,
+-- mit dem Bereich, den die Transkription wiedergibt
 CREATE TABLE person_citation_media (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     citation_id INT UNSIGNED NOT NULL COMMENT '→ person_citations',
     media_id    INT UNSIGNED NOT NULL,
     sort_order  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Bereich der Transkription auf dem Bild (Anteile 0–1 des richtig gedrehten Bilds; NULL = ganzes Bild)
+    crop_left   DECIMAL(7,6) NULL COMMENT 'Bereich der Transkription: linker Rand als Anteil der Bildbreite (0–1)',
+    crop_top    DECIMAL(7,6) NULL COMMENT 'oberer Rand als Anteil der Bildhöhe',
+    crop_width  DECIMAL(7,6) NULL COMMENT 'Breite als Anteil der Bildbreite',
+    crop_height DECIMAL(7,6) NULL COMMENT 'Höhe als Anteil der Bildhöhe',
     FOREIGN KEY (citation_id) REFERENCES person_citations(id) ON DELETE CASCADE,
     FOREIGN KEY (media_id)    REFERENCES media(id) ON DELETE CASCADE,
     INDEX idx_citation (citation_id),
@@ -398,6 +404,11 @@ CREATE TABLE family_citation_media (
     citation_id INT UNSIGNED NOT NULL COMMENT '→ family_citations',
     media_id    INT UNSIGNED NOT NULL,
     sort_order  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Bereich der Transkription auf dem Bild (Anteile 0–1 des richtig gedrehten Bilds; NULL = ganzes Bild)
+    crop_left   DECIMAL(7,6) NULL COMMENT 'Bereich der Transkription: linker Rand als Anteil der Bildbreite (0–1)',
+    crop_top    DECIMAL(7,6) NULL COMMENT 'oberer Rand als Anteil der Bildhöhe',
+    crop_width  DECIMAL(7,6) NULL COMMENT 'Breite als Anteil der Bildbreite',
+    crop_height DECIMAL(7,6) NULL COMMENT 'Höhe als Anteil der Bildhöhe',
     FOREIGN KEY (citation_id) REFERENCES family_citations(id) ON DELETE CASCADE,
     FOREIGN KEY (media_id)    REFERENCES media(id) ON DELETE CASCADE,
     INDEX idx_citation (citation_id),
@@ -409,6 +420,11 @@ CREATE TABLE event_citation_media (
     citation_id INT UNSIGNED NOT NULL COMMENT '→ event_citations',
     media_id    INT UNSIGNED NOT NULL,
     sort_order  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Bereich der Transkription auf dem Bild (Anteile 0–1 des richtig gedrehten Bilds; NULL = ganzes Bild)
+    crop_left   DECIMAL(7,6) NULL COMMENT 'Bereich der Transkription: linker Rand als Anteil der Bildbreite (0–1)',
+    crop_top    DECIMAL(7,6) NULL COMMENT 'oberer Rand als Anteil der Bildhöhe',
+    crop_width  DECIMAL(7,6) NULL COMMENT 'Breite als Anteil der Bildbreite',
+    crop_height DECIMAL(7,6) NULL COMMENT 'Höhe als Anteil der Bildhöhe',
     FOREIGN KEY (citation_id) REFERENCES event_citations(id) ON DELETE CASCADE,
     FOREIGN KEY (media_id)    REFERENCES media(id) ON DELETE CASCADE,
     INDEX idx_citation (citation_id),
@@ -420,6 +436,11 @@ CREATE TABLE family_event_citation_media (
     citation_id INT UNSIGNED NOT NULL COMMENT '→ family_event_citations',
     media_id    INT UNSIGNED NOT NULL,
     sort_order  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Bereich der Transkription auf dem Bild (Anteile 0–1 des richtig gedrehten Bilds; NULL = ganzes Bild)
+    crop_left   DECIMAL(7,6) NULL COMMENT 'Bereich der Transkription: linker Rand als Anteil der Bildbreite (0–1)',
+    crop_top    DECIMAL(7,6) NULL COMMENT 'oberer Rand als Anteil der Bildhöhe',
+    crop_width  DECIMAL(7,6) NULL COMMENT 'Breite als Anteil der Bildbreite',
+    crop_height DECIMAL(7,6) NULL COMMENT 'Höhe als Anteil der Bildhöhe',
     FOREIGN KEY (citation_id) REFERENCES family_event_citations(id) ON DELETE CASCADE,
     FOREIGN KEY (media_id)    REFERENCES media(id) ON DELETE CASCADE,
     INDEX idx_citation (citation_id),

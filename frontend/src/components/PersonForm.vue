@@ -44,7 +44,7 @@ const isEditing = computed(() => props.editPerson !== null)
 // Person auf einem Bild markieren: Ausschnitt kommt vom Server und gilt sofort fürs Vorschaubild
 const regionMedia = ref(null)
 function onRegionSaved(m) {
-  const crop = m.links?.find(l => l.kind === 'person' && l.target_id === personId.value)?.crop ?? null
+  const crop = m.links?.find(l => l.kind === 'person' && !l.citation && l.target_id === personId.value)?.crop ?? null
   form.value.media = form.value.media.map(x => x.id === m.id ? { ...x, crop } : x)
   emit('person-saved', null, false)   // Listen und Stammbaum neu laden (Vorschaubild)
 }

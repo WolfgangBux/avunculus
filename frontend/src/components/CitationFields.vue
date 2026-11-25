@@ -7,6 +7,8 @@ import Button from 'openvue/button'
 import QualitySelect from './QualitySelect.vue'
 import SourcePicker from './SourcePicker.vue'
 import MediaStrip from './MediaStrip.vue'
+import CitationRegionDialog from './CitationRegionDialog.vue'
+import { ref } from 'vue'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 
@@ -19,6 +21,13 @@ defineEmits(['remove'])
 const size = props.small ? 'small' : undefined
 // ältere Formularzustände ohne Medien
 if (!Array.isArray(props.citation.media)) props.citation.media = []
+
+// Bereich der Transkription auf einem Original markieren (wird mit der Quellenangabe gespeichert)
+const regionMedia = ref(null)
+function applyRegion(crop) {
+  const id = regionMedia.value.id
+  props.citation.media = props.citation.media.map(m => m.id === id ? { ...m, crop } : m)
+}
 </script>
 
 <template>
@@ -48,7 +57,10 @@ if (!Array.isArray(props.citation.media)) props.citation.media = []
     </div>
     <div class="form-group sub-wide">
       <label>{{ t('person.citations.mediaLabel') }}</label>
-      <MediaStrip v-model="citation.media" />
+      <MediaStrip v-model="citation.media" :regions="canEdit" :region-label="t('media.citationRegion.button')"
+        @region="m => (regionMedia = m)" />
+      <CitationRegionDialog :visible="regionMedia != null" :media="regionMedia"
+        @update:visible="v => { if (!v) regionMedia = null }" @apply="applyRegion" />
     </div>
     <slot />
   </div>

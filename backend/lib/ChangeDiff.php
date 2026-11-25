@@ -246,7 +246,10 @@ final class ChangeDiff
         $mediaTable = MediaLinks::KINDS[MediaLinks::CITATION_KINDS[$table]][0];
         foreach ($this->db->query("SELECT c.id, c.$ownerCol AS owner, c.page, c.transcription, c.url, c.quality,
                                           COALESCE(NULLIF(s.abbreviation, ''), s.title) AS source,
-                                          (SELECT GROUP_CONCAT(COALESCE(NULLIF(m.title, ''), m.original_name) ORDER BY x.sort_order, x.id SEPARATOR '; ')
+                                          (SELECT GROUP_CONCAT(CONCAT(COALESCE(NULLIF(m.title, ''), m.original_name),
+                                                         IF(x.crop_width IS NULL, '', CONCAT(' ⬚ ', ROUND(x.crop_left, 3), ',', ROUND(x.crop_top, 3), ' ',
+                                                                                              ROUND(x.crop_width, 3), '×', ROUND(x.crop_height, 3))))
+                                                  ORDER BY x.sort_order, x.id SEPARATOR '; ')
                                            FROM $mediaTable x JOIN media m ON m.id = x.media_id WHERE x.citation_id = c.id) AS media
                                    FROM $table c LEFT JOIN sources s ON s.id = c.source_id
                                    WHERE c.$ownerCol IN ($in) ORDER BY c.sort_order, c.id") as $c) {

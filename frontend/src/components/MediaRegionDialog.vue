@@ -34,7 +34,7 @@ function onSaved(m) {
     :style="{ width: '56rem' }" :breakpoints="{ '900px': '95vw' }">
     <div v-if="error" class="alert alert-error">{{ t('media.region.loadError') }}</div>
     <p v-else-if="!media" class="muted">{{ t('common.loading') }}</p>
-    <p v-else-if="!media.links?.some(l => l.kind === 'person' && l.target_id === personId)" class="alert alert-warning">
+    <p v-else-if="!media.links?.some(l => l.kind === 'person' && !l.citation && l.target_id === personId)" class="alert alert-warning">
       {{ t('media.region.notLinked') }}
     </p>
     <MediaRegions v-else :media="media" :only-person="personId" @saved="onSaved" />

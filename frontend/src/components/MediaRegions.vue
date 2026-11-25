@@ -5,6 +5,7 @@ import SelectButton from 'openvue/selectbutton'
 import PersonPicker from './PersonPicker.vue'
 import { mediaFileUrl, saveMediaRegion } from '../api/media.js'
 import { useNotify } from '../composables/feedback.js'
+import { useRegionDrag, regionBox } from '../composables/regionDrag.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 
@@ -29,8 +30,11 @@ const props = defineProps({
 const emit   = defineEmits(['saved'])
 const notify = useNotify()
 
+// Person direkt mit dem Bild verknüpft (nicht nur über eine ihrer Quellenangaben)
+const isPersonLink = l => l.kind === 'person' && !l.citation
+
 const persons = computed(() => (props.media.links ?? [])
-  .filter(l => l.kind === 'person' && (props.onlyPerson == null || l.target_id === props.onlyPerson)))
+  .filter(l => isPersonLink(l) && (props.onlyPerson == null || l.target_id === props.onlyPerson)))
 
 const img      = ref(null)
 const editing  = ref(null)    // Personen-ID, deren Rahmen gerade bearbeitet wird
@@ -73,49 +77,7 @@ async function save(crop, personId = editing.value, opts = {}) {
 }
 
 // ── Ziehen: neuen Rahmen aufziehen, verschieben oder an einer Ecke ändern ──
-const MIN = 0.02
-const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v))
-let drag = null
-
-function point(e) {
-  const r = img.value.getBoundingClientRect()
-  return { x: clamp((e.clientX - r.left) / r.width), y: clamp((e.clientY - r.top) / r.height) }
-}
-
-function down(e) {
-  if (editing.value == null || e.button > 0) return
-  const p = point(e)
-  const handle = e.target.dataset?.handle
-  const shape  = draft.value?.shape ?? 'rect'
-  if (handle && draft.value)                         drag = { mode: 'resize', handle, orig: { ...draft.value } }
-  else if (e.target.dataset?.frame && draft.value)   drag = { mode: 'move', start: p, orig: { ...draft.value } }
-  else { drag = { mode: 'draw', start: p, orig: draft.value }; draft.value = { left: p.x, top: p.y, width: 0, height: 0, shape } }
-  e.currentTarget.setPointerCapture(e.pointerId)
-  e.preventDefault()
-}
-
-function move(e) {
-  if (!drag) return
-  const p = point(e), o = drag.orig
-  if (drag.mode === 'draw') {
-    const s = drag.start
-    draft.value = { ...draft.value, left: Math.min(s.x, p.x), top: Math.min(s.y, p.y), width: Math.abs(p.x - s.x), height: Math.abs(p.y - s.y) }
-  } else if (drag.mode === 'move') {
-    draft.value = { ...o, left: clamp(o.left + p.x - drag.start.x, 0, 1 - o.width), top: clamp(o.top + p.y - drag.start.y, 0, 1 - o.height) }
-  } else {
-    // gegenüberliegende Ecke bleibt stehen
-    const fx = drag.handle.includes('w') ? o.left + o.width : o.left
-    const fy = drag.handle.includes('n') ? o.top + o.height : o.top
-    draft.value = { ...o, left: Math.min(fx, p.x), top: Math.min(fy, p.y), width: Math.abs(p.x - fx), height: Math.abs(p.y - fy) }
-  }
-}
-
-function up() {
-  if (!drag) return
-  // Versehentlicher Klick ohne Ziehen: alten Rahmen behalten
-  if (draft.value && (draft.value.width < MIN || draft.value.height < MIN)) draft.value = drag.orig
-  drag = null
-}
+const { down, move, up } = useRegionDrag(img, draft, () => editing.value != null)
 
 function setShape(shape) { if (draft.value) draft.value = { ...draft.value, shape } }
 const draftShape = computed({ get: () => draft.value?.shape ?? 'rect', set: setShape })
@@ -135,14 +97,14 @@ function matchPerson(name) {
   const n = norm(name)
   if (!n) return null
   return (props.media.links ?? []).find(l => {
-    if (l.kind !== 'person' || l.crop) return false
+    if (!isPersonLink(l) || l.crop) return false
     const [sur, given = ''] = (l.label ?? '').split(',').map(x => x.trim())
     return norm(`${given} ${sur}`) === n || norm(`${sur} ${given}`) === n
   }) ?? null
 }
 
 const suggestions = computed(() => (props.media.file_regions ?? [])
-  .filter(s => !(props.media.links ?? []).some(l => l.kind === 'person' && l.crop && overlap(l.crop, s.crop) > 0.5))
+  .filter(s => !(props.media.links ?? []).some(l => isPersonLink(l) && l.crop && overlap(l.crop, s.crop) > 0.5))
   .map((s, i) => ({ ...s, key: i, match: matchPerson(s.name) })))
 
 const assigning = ref(null)   // Schlüssel des Vorschlags, für den gerade eine Person gewählt wird
@@ -151,12 +113,12 @@ function startAssign(s) { assigning.value = s.key; pickId.value = '' }
 function assign(s) {
   if (!pickId.value) return
   const id = Number(pickId.value)
-  const linked = (props.media.links ?? []).some(l => l.kind === 'person' && l.target_id === id)
+  const linked = (props.media.links ?? []).some(l => isPersonLink(l) && l.target_id === id)
   save({ ...s.crop }, id, { link: !linked })
 }
 function takeOver(s) { draft.value = { ...s.crop, shape: draft.value?.shape ?? 'rect' } }
 
-const box = c => ({ left: c.left * 100 + '%', top: c.top * 100 + '%', width: c.width * 100 + '%', height: c.height * 100 + '%' })
+const box = regionBox
 const shown = computed(() => persons.value.filter(p => p.crop && p.target_id !== editing.value))
 const editingLabel = computed(() => persons.value.find(p => p.target_id === editing.value)?.label ?? '')
 const hasSaved = computed(() => !!persons.value.find(p => p.target_id === editing.value)?.crop)
