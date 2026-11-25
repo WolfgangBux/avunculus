@@ -24,7 +24,11 @@ class MediaController extends TreeScopedController
                               + (SELECT COUNT(*) FROM family_media x WHERE x.media_id = m.id)
                               + (SELECT COUNT(*) FROM event_media x WHERE x.media_id = m.id)
                               + (SELECT COUNT(*) FROM family_event_media x WHERE x.media_id = m.id)
-                              + (SELECT COUNT(*) FROM source_media x WHERE x.media_id = m.id)';
+                              + (SELECT COUNT(*) FROM source_media x WHERE x.media_id = m.id)
+                              + (SELECT COUNT(*) FROM person_citation_media x WHERE x.media_id = m.id)
+                              + (SELECT COUNT(*) FROM family_citation_media x WHERE x.media_id = m.id)
+                              + (SELECT COUNT(*) FROM event_citation_media x WHERE x.media_id = m.id)
+                              + (SELECT COUNT(*) FROM family_event_citation_media x WHERE x.media_id = m.id)';
 
     // GET /api/media/search?q=&type=image|document|av&unlinked=1&limit=&offset=
     public function search(): void
@@ -302,7 +306,7 @@ class MediaController extends TreeScopedController
         return strtolower(pathinfo($base, PATHINFO_EXTENSION)) === strtolower($ext) ? $base : "$base.$ext";
     }
 
-    /** Wo wird das Medium verwendet? Personen, Ereignisse, Familien, Familienereignisse, Quellen */
+    /** Wo wird das Medium verwendet? Personen, Ereignisse, Familien, Familienereignisse, Quellen – auch über Quellenangaben */
     private function links(int $mediaId): array
     {
         $personName = fn(string $pid) => "(SELECT CONCAT_WS(', ', NULLIF(TRIM(CONCAT_WS(' ', n.surname_prefix, n.surname)), ''), n.given_name)
@@ -316,17 +320,30 @@ class MediaController extends TreeScopedController
         $queries = [
             'person'       => "SELECT 'person' AS kind, l.person_id AS target_id, l.is_primary, NULL AS event_type, NULL AS event_date,
                                       p.sex, {$personName('l.person_id')} AS label,
-                                      l.crop_left, l.crop_top, l.crop_width, l.crop_height, l.crop_shape
+                                      l.crop_left, l.crop_top, l.crop_width, l.crop_height, l.crop_shape, 0 AS citation
                                FROM person_media l JOIN persons p ON p.id = l.person_id WHERE l.media_id = ?",
-            'event'        => "SELECT 'event', e.person_id, 0, e.event_type, e.event_date, p.sex, {$personName('e.person_id')}, $noCrop
+            'event'        => "SELECT 'event', e.person_id, 0, e.event_type, e.event_date, p.sex, {$personName('e.person_id')}, $noCrop, 0
                                FROM event_media l JOIN person_events e ON e.id = l.event_id JOIN persons p ON p.id = e.person_id
                                WHERE l.media_id = ?",
-            'family'       => "SELECT 'family', l.family_id, 0, NULL, NULL, NULL, {$partners('l.family_id')}, $noCrop
+            'family'       => "SELECT 'family', l.family_id, 0, NULL, NULL, NULL, {$partners('l.family_id')}, $noCrop, 0
                                FROM family_media l WHERE l.media_id = ?",
-            'family_event' => "SELECT 'family_event', e.family_id, 0, e.event_type, e.event_date, NULL, {$partners('e.family_id')}, $noCrop
+            'family_event' => "SELECT 'family_event', e.family_id, 0, e.event_type, e.event_date, NULL, {$partners('e.family_id')}, $noCrop, 0
                                FROM family_event_media l JOIN family_events e ON e.id = l.event_id WHERE l.media_id = ?",
-            'source'       => "SELECT 'source', s.id, 0, NULL, NULL, NULL, s.title, $noCrop
+            'source'       => "SELECT 'source', s.id, 0, NULL, NULL, NULL, s.title, $noCrop, 0
                                FROM source_media l JOIN sources s ON s.id = l.source_id WHERE l.media_id = ?",
+            // an einer Quellenangabe: angezeigt wie Person/Ereignis/Familie, mit Hinweis „Quellenangabe“
+            'person_citation'       => "SELECT 'person', c.person_id, 0, NULL, NULL, p.sex, {$personName('c.person_id')}, $noCrop, 1
+                                        FROM person_citation_media l JOIN person_citations c ON c.id = l.citation_id
+                                        JOIN persons p ON p.id = c.person_id WHERE l.media_id = ?",
+            'event_citation'        => "SELECT 'event', e.person_id, 0, e.event_type, e.event_date, p.sex, {$personName('e.person_id')}, $noCrop, 1
+                                        FROM event_citation_media l JOIN event_citations c ON c.id = l.citation_id
+                                        JOIN person_events e ON e.id = c.event_id JOIN persons p ON p.id = e.person_id
+                                        WHERE l.media_id = ?",
+            'family_citation'       => "SELECT 'family', c.family_id, 0, NULL, NULL, NULL, {$partners('c.family_id')}, $noCrop, 1
+                                        FROM family_citation_media l JOIN family_citations c ON c.id = l.citation_id WHERE l.media_id = ?",
+            'family_event_citation' => "SELECT 'family_event', e.family_id, 0, e.event_type, e.event_date, NULL, {$partners('e.family_id')}, $noCrop, 1
+                                        FROM family_event_citation_media l JOIN family_event_citations c ON c.id = l.citation_id
+                                        JOIN family_events e ON e.id = c.event_id WHERE l.media_id = ?",
         ];
         $stmt = $this->db->prepare(implode("\nUNION ALL\n", $queries));
         $stmt->execute(array_fill(0, count($queries), $mediaId));
@@ -338,7 +355,8 @@ class MediaController extends TreeScopedController
             'event_type' => $r['event_type'],
             'event_date' => $r['event_date'],
             'is_primary' => (bool) $r['is_primary'],
-            'crop'       => $r['kind'] === 'person' ? MediaLinks::cropFromRow($r) : null,
+            'citation'   => (bool) $r['citation'],
+            'crop'       => $r['kind'] === 'person' && !$r['citation'] ? MediaLinks::cropFromRow($r) : null,
         ], $stmt->fetchAll());
     }
 

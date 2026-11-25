@@ -9,6 +9,7 @@ import { useAsk, useNotify } from '../composables/feedback.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 import { displayDate, assoRole } from '../format.js'
+import { citationMediaFromApi, citationToApi } from '../personModel.js'
 
 // muss zu FamilyController::EVENT_TYPES im Backend passen
 const FAMILY_EVENT_TYPES =['MARR', 'MARB', 'MARC', 'MARL', 'ENGA', 'DIV', 'DIVF', 'ANUL', 'CENS', 'RESI', 'EVEN']
@@ -64,6 +65,7 @@ function startEdit(ev) {
     // mit IDs: das Backend gleicht ab, vorhandene Quellenangaben/Beteiligte behalten ihre ID
     citations: (ev.citations ?? []).map(c => ({
       id: c.id ?? null, source_id: c.source_id, source_label: c.source_abbreviation || c.source_title || '', page: c.page ?? '', url: c.url ?? '', transcription: c.transcription ?? '', quality: c.quality ?? null,
+      media: citationMediaFromApi(c),
     })),
     media: (ev.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type })),
     associations: (ev.associations ?? []).map(a => ({
@@ -85,7 +87,7 @@ async function save() {
     const data = {
       event_type: e.event_type, event_date: e.event_date, place_id: e.place_id, event_place: (e.event_place ?? '').trim(),
       ...Object.fromEntries(DETAIL_KEYS.map(k => [k, e[k]])),
-      citations:  e.citations,
+      citations:  e.citations.map(citationToApi),
       media:      e.media.map(m => ({ id: m.id })),
       associations: e.associations
         .filter(a => a.person_id !== '' && a.person_id !== null)

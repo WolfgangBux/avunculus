@@ -575,6 +575,7 @@ class FamilyController extends TreeScopedController
         foreach ($stmt->fetchAll() as $c) {
             $out[(int) $c['owner_id']][] = [
                 'id'                  => (int) $c['id'],
+                'media'               => [],
                 'source_id'           => $c['source_id'] !== null ? (int) $c['source_id'] : null,
                 'page'                => $c['page'],
                 'transcription'       => $c['transcription'],
@@ -584,6 +585,13 @@ class FamilyController extends TreeScopedController
                 'source_abbreviation' => $c['source_abbreviation'],
             ];
         }
+        // Medien der Quellenangaben (SOUR.OBJE) in einer Abfrage
+        $media = $this->media()->fetch(MediaLinks::CITATION_KINDS[$table], array_column(array_merge([], ...array_values($out)), 'id'));
+        foreach ($out as &$list) {
+            foreach ($list as &$c) $c['media'] = $media[$c['id']] ?? [];
+            unset($c);
+        }
+        unset($list);
         return $out;
     }
 
@@ -593,6 +601,7 @@ class FamilyController extends TreeScopedController
         // $table/$ownerCol sind fest im Code vorgegeben (family_event_citations/event_id, family_citations/family_id)
         $sync  = new RowSync($this->db, $table, $ownerCol, $ownerId);
         $valid = $this->idsInTree('sources', array_map(fn($c) => $c['source_id'] ?? 0, $citations));
+        $links = $this->media();
         $order = 0;
         foreach ($citations as $c) {
             $str      = fn(string $k, int $max) => ($v = trim((string) ($c[$k] ?? ''))) !== '' ? mb_substr($v, 0, $max) : null;
@@ -600,11 +609,12 @@ class FamilyController extends TreeScopedController
             $page     = $str('page', 250);
             $text     = $str('transcription', 65000);
             $url      = $str('url', 500);
-            if (!$sourceId && !$page && !$text && !$url) continue;
-            $sync->save($c['id'] ?? null, [
+            if (!$sourceId && !$page && !$text && !$url && empty($c['media'])) continue;
+            $cid = $sync->save($c['id'] ?? null, [
                 'source_id' => $sourceId, 'page' => $page, 'transcription' => $text, 'url' => $url,
                 'quality'   => PersonController::quality($c['quality'] ?? null), 'sort_order' => min($order++, 255),
             ]);
+            $links->saveForCitation($table, $cid, $c);
         }
         $sync->deleteRest();
     }

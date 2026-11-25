@@ -1994,6 +1994,8 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
   margin-bottom: .2rem;
   white-space: normal;
 }
+/* Original (Scan) einer Quellenangabe: unter der Transkription, gleich eingerückt */
+.view-cit-media { margin: .35rem 0 .1rem .9rem; }
 .form-toolbar { display: flex; justify-content: flex-end; margin: -.4rem 0 -.2rem; }
 .asso-view { padding: .1rem .85rem .6rem .85rem; }
 .view-cit-line { cursor: default; }

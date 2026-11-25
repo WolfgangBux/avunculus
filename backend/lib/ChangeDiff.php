@@ -243,14 +243,18 @@ final class ChangeDiff
         if (!$ownerIds) return [];
         $in   = implode(',', array_map('intval', $ownerIds));
         $out  = [];
+        $mediaTable = MediaLinks::KINDS[MediaLinks::CITATION_KINDS[$table]][0];
         foreach ($this->db->query("SELECT c.id, c.$ownerCol AS owner, c.page, c.transcription, c.url, c.quality,
-                                          COALESCE(NULLIF(s.abbreviation, ''), s.title) AS source
+                                          COALESCE(NULLIF(s.abbreviation, ''), s.title) AS source,
+                                          (SELECT GROUP_CONCAT(COALESCE(NULLIF(m.title, ''), m.original_name) ORDER BY x.sort_order, x.id SEPARATOR '; ')
+                                           FROM $mediaTable x JOIN media m ON m.id = x.media_id WHERE x.citation_id = c.id) AS media
                                    FROM $table c LEFT JOIN sources s ON s.id = c.source_id
                                    WHERE c.$ownerCol IN ($in) ORDER BY c.sort_order, c.id") as $c) {
             $text = implode(', ', array_filter([
                 $c['source'], $c['page'],
                 $c['quality'] !== null ? str_repeat('★', (int) $c['quality']) . str_repeat('☆', 3 - (int) $c['quality']) : null,
                 $c['url'], $c['transcription'] ? '„' . self::cut((string) $c['transcription']) . '“' : null,
+                $c['media'] !== null ? '[' . $c['media'] . ']' : null,
             ], fn($v) => $v !== null && $v !== ''));
             $out[(int) $c['owner']][(int) $c['id']] = $text;
         }

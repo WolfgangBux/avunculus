@@ -77,7 +77,7 @@ final class Privacy
         return self::$active ? " AND " . self::familyVisible($familyIdExpr) : '';
     }
 
-    /** Bedingung: Medium (Alias m) hängt an keiner privaten Person, keinem ihrer Ereignisse und keiner privaten Familie */
+    /** Bedingung: Medium (Alias m) hängt an keiner privaten Person, keiner privaten Familie und keinem ihrer Ereignisse oder Quellenangaben */
     public static function mediaSql(string $alias = 'm'): string
     {
         if (!self::$active) return '';
@@ -89,6 +89,17 @@ final class Privacy
                  AND NOT EXISTS (SELECT 1 FROM family_media x WHERE x.media_id = $alias.id
                                  AND NOT " . self::familyVisible('x.family_id') . ")
                  AND NOT EXISTS (SELECT 1 FROM family_event_media x JOIN family_events xe ON xe.id = x.event_id
+                                 WHERE x.media_id = $alias.id AND NOT " . self::familyVisible('xe.family_id') . ")
+                 AND NOT EXISTS (SELECT 1 FROM person_citation_media x JOIN person_citations xc ON xc.id = x.citation_id
+                                 JOIN persons xp ON xp.id = xc.person_id
+                                 WHERE x.media_id = $alias.id AND xp.is_private = 1)
+                 AND NOT EXISTS (SELECT 1 FROM event_citation_media x JOIN event_citations xc ON xc.id = x.citation_id
+                                 JOIN person_events xe ON xe.id = xc.event_id JOIN persons xp ON xp.id = xe.person_id
+                                 WHERE x.media_id = $alias.id AND xp.is_private = 1)
+                 AND NOT EXISTS (SELECT 1 FROM family_citation_media x JOIN family_citations xc ON xc.id = x.citation_id
+                                 WHERE x.media_id = $alias.id AND NOT " . self::familyVisible('xc.family_id') . ")
+                 AND NOT EXISTS (SELECT 1 FROM family_event_citation_media x JOIN family_event_citations xc ON xc.id = x.citation_id
+                                 JOIN family_events xe ON xe.id = xc.event_id
                                  WHERE x.media_id = $alias.id AND NOT " . self::familyVisible('xe.family_id') . ")";
     }
 

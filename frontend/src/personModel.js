@@ -28,7 +28,7 @@ export const blankName = () => ({
   name_type: 'BIRTH', name_prefix: '', given_name: '',
   nickname: '', surname_prefix: '', surname: '', name_suffix: '',
 })
-export const blankCitation    = () => ({ source_id: '', source_label: '', page: '', transcription: '', url: '', quality: null })
+export const blankCitation    = () => ({ source_id: '', source_label: '', page: '', transcription: '', url: '', quality: null, media: [] })
 export const blankAssociation = () => ({ person_id: '', person_label: '', role: '', role_phrase: '' })
 export const blankEvent       = (type = 'BIRT') => ({
   event_type: type, event_date: '', place_id: null, event_place: '',
@@ -59,7 +59,7 @@ export function datePreview(evt) {
   return out !== normalizeGedcomDate(evt.event_date) && isValidGedcomDate(out) ? out : ''
 }
 
-export const isFilledCitation = c => c.source_id || c.page || c.transcription || c.url
+export const isFilledCitation = c => c.source_id || c.page || c.transcription || c.url || c.media?.length
 export const filledCitations  = list => list.filter(isFilledCitation)
 
 /** Felder der Leseansicht eines Ereignisses – nur ausgefüllte */
@@ -95,10 +95,15 @@ export function listName(person) {
 const str      = v => v ?? ''
 // crop: Ausschnitt der Person auf dem Bild (nur Anzeige; gesetzt wird er über media/{id}/region, nicht mit der Person)
 const mediaItem = m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type, is_primary: !!m.is_primary, crop: m.crop ?? null })
+/** Medien einer Quellenangabe (Scan des zitierten Eintrags) – für alle Formulare mit Quellenangaben */
+export const citationMediaFromApi = c => (c.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type }))
+/** Quellenangabe zum Speichern: Medien nur als IDs */
+export const citationToApi = c => ({ ...c, media: (c.media ?? []).map(m => ({ id: m.id })) })
 const citationFromApi = c => ({
   id: c.id ?? null,
   source_id: str(c.source_id), source_label: c.source_abbreviation || c.source_title || '', page: str(c.page), transcription: str(c.transcription), url: str(c.url),
   quality: c.quality ?? null,
+  media: citationMediaFromApi(c),
 })
 
 /** Formularzustand aus einer Person der API (null = neue, leere Person) */
@@ -159,7 +164,7 @@ export function personToApi(s) {
   return {
     sex:          s.sex,
     restriction:  s.restriction.join(', '),
-    citations:    filledCitations(s.citations).map(c => ({ ...c })),
+    citations:    filledCitations(s.citations).map(citationToApi),
     media:        s.media.map(m => ({ id: m.id, is_primary: m.is_primary })),
     associations: associationsToApi(s.associations, true),
     notes:        s.notes,
@@ -185,6 +190,7 @@ export function personToApi(s) {
         transcription: c.transcription.trim() || null,
         url:           c.url.trim()           || null,
         quality:       c.quality ?? null,
+        media:         c.media.map(m => ({ id: m.id })),
       })),
       media:        e.media.map(m => ({ id: m.id })),
       associations: associationsToApi(e.associations, false),

@@ -250,12 +250,12 @@ class PersonController extends TreeScopedController
             ORDER BY c.sort_order, c.id
         ');
         $stmt->execute([$personId]);
-        return array_map(fn($c) => [
+        return $this->media()->attachToCitations('person_citations', array_map(fn($c) => [
             ...$c,
             'id'        => (int) $c['id'],
             'source_id' => $c['source_id'] !== null ? (int) $c['source_id'] : null,
             'quality'   => $c['quality'] !== null ? (int) $c['quality'] : null,
-        ], $stmt->fetchAll());
+        ], $stmt->fetchAll()));
     }
 
     /** Quellenangaben der Person ersetzen; nur Quellen aus diesem Baum, leere werden übergangen */
@@ -263,18 +263,21 @@ class PersonController extends TreeScopedController
     {
         $sync  = new RowSync($this->db, 'person_citations', 'person_id', $personId);
         $valid = $this->idsInTree('sources', array_column($citations, 'source_id'));
+        $links = $this->media();
         $order = 0;
         foreach ($citations as $c) {
+            if (!is_array($c)) continue;
             $str      = fn(string $k, int $max) => ($v = trim((string) ($c[$k] ?? ''))) !== '' ? mb_substr($v, 0, $max) : null;
             $sourceId = isset($valid[(int) ($c['source_id'] ?? 0)]) ? (int) $c['source_id'] : null;
             $page     = $str('page', 250);
             $text     = $str('transcription', 65000);
             $url      = $str('url', 500);
-            if (!$sourceId && !$page && !$text && !$url) continue;
-            $sync->save($c['id'] ?? null, [
+            if (!$sourceId && !$page && !$text && !$url && empty($c['media'])) continue;
+            $cid = $sync->save($c['id'] ?? null, [
                 'source_id' => $sourceId, 'page' => $page, 'transcription' => $text, 'url' => $url,
                 'quality'   => self::quality($c['quality'] ?? null), 'sort_order' => min($order++, 255),
             ]);
+            $links->saveForCitation('person_citations', $cid, $c);
         }
         $sync->deleteRest();
     }
@@ -370,6 +373,13 @@ class PersonController extends TreeScopedController
         foreach ($this->media()->fetch('event', array_keys($index)) as $eid => $list) {
             $events[$index[$eid]]['media'] = $list;
         }
+        // Medien der Quellenangaben in einer Abfrage für alle Ereignisse
+        $citMedia = $this->media()->fetch('event_citation', array_merge([], ...array_map(fn($e) => array_column($e['citations'], 'id'), $events)));
+        foreach ($events as &$e) {
+            foreach ($e['citations'] as &$c) $c['media'] = $citMedia[$c['id']] ?? [];
+            unset($c);
+        }
+        unset($e);
         return GedcomDate::sortEvents($events);
     }
 
@@ -413,8 +423,8 @@ class PersonController extends TreeScopedController
             foreach (array_values($event['citations'] ?? []) as $j => $c) {
                 $cStr     = fn(string $k): ?string => ($v = trim($c[$k] ?? '')) !== '' ? $v : null;
                 $sourceId = !empty($c['source_id']) && isset($validSources[(int) $c['source_id']]) ? (int) $c['source_id'] : null;
-                if (!$sourceId && !$cStr('page') && !$cStr('transcription') && !$cStr('url')) continue;
-                $citations->save($c['id'] ?? null, [
+                if (!$sourceId && !$cStr('page') && !$cStr('transcription') && !$cStr('url') && empty($c['media'])) continue;
+                $cid = $citations->save($c['id'] ?? null, [
                     'source_id'     => $sourceId,
                     'page'          => $cStr('page'),
                     'transcription' => $cStr('transcription'),
@@ -422,6 +432,7 @@ class PersonController extends TreeScopedController
                     'quality'       => self::quality($c['quality'] ?? null),
                     'sort_order'    => min($j, 255),
                 ]);
+                $mediaLinks->saveForCitation('event_citations', $cid, $c);
             }
             $citations->deleteRest();
 

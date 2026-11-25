@@ -84,9 +84,10 @@ async function remove() {
 const links = computed(() => (props.media.links ?? []).map(l => ({
   ...l,
   icon: { person: 'pi-user', event: 'pi-calendar', family: 'pi-users', family_event: 'pi-heart', source: 'pi-book' }[l.kind],
-  detail: l.kind === 'event' ? t('person.eventTypes.' + l.event_type)
-        : l.kind === 'family_event' ? t('family.eventTypes.' + l.event_type)
-        : l.kind === 'person' && l.is_primary ? t('media.primary') : '',
+  detail: [l.kind === 'event' ? t('person.eventTypes.' + l.event_type)
+         : l.kind === 'family_event' ? t('family.eventTypes.' + l.event_type)
+         : l.kind === 'person' && l.is_primary ? t('media.primary') : '',
+           l.citation ? t('media.viaCitation') : ''].filter(Boolean).join(' · '),
 })))
 function openLink(l) {
   if (l.kind === 'person' || l.kind === 'event') emit('open-person', l.target_id)

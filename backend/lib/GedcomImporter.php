@@ -118,8 +118,13 @@ final class GedcomImporter
     private array $mediaMime    = [];   // media.id → MIME-Typ
     private int   $mediaMissing = 0;    // Medien, deren Datei nicht gefunden wurde
     private ?MediaLinks $links  = null;
+    /** @var WeakMap<PDOStatement, string> Einfüge-Anweisung für Quellenangaben → Art ihrer Medien (MediaLinks::KINDS) */
+    private WeakMap $citationKinds;
 
-    public function __construct(private readonly PDO $db) {}
+    public function __construct(private readonly PDO $db)
+    {
+        $this->citationKinds = new WeakMap();
+    }
 
     /** Neue Personen-ID zu einer Kennung aus der Datei (@I12@) – nach import() */
     public function importedPersonId(string $xref): ?int
@@ -485,25 +490,13 @@ final class GedcomImporter
     // ── Medien (OBJE) ─────────────────────────────────────
 
     /**
-     * OBJE-Verweise eines Knotens verknüpfen – auch die an seinen Quellenangaben (z. B. Scan des
-     * Kirchenbucheintrags an der Taufe). Ohne _PRIM wird bei Personen das erste Bild zum Hauptbild.
+     * OBJE-Verweise direkt an einem Knoten verknüpfen; die an seinen Quellenangaben (z. B. Scan des
+     * Kirchenbucheintrags an der Taufe) übernimmt importCitation(). Ohne _PRIM wird bei Personen das
+     * erste Bild zum Hauptbild.
      */
     private function linkMedia(string $kind, int $ownerId, array $node): void
     {
-        $objes = $this->children($node, 'OBJE');
-        foreach ($this->children($node, 'SOUR') as $s) array_push($objes, ...$this->children($s, 'OBJE'));
-        if (!$objes) return;
-
-        $items = [];
-        foreach ($objes as $o) {
-            $id = $this->mediaFor($o);
-            if ($id === null) continue;
-            $rec  = preg_match('/^@[^@]+@$/', $this->value($o)) ? ($this->objes[$this->value($o)] ?? $o) : $o;
-            $prim = strtoupper($this->value($this->child($o, '_PRIM')) ?: $this->value($this->child($rec, '_PRIM')));
-            $item = ['id' => $id, 'is_primary' => $prim === 'Y' || $prim === 'YES'];
-            if ($kind === 'person' && ($crop = $this->cropOf($o, $id))) $item['crop'] = $crop;
-            $items[] = $item;
-        }
+        $items = $this->mediaItems($kind, $node);
         if (!$items) return;
         if ($kind === 'person' && !array_filter(array_column($items, 'is_primary'))) {
             foreach ($items as &$m) {
@@ -512,6 +505,22 @@ final class GedcomImporter
             unset($m);
         }
         $this->links->append($kind, $ownerId, $items);
+    }
+
+    /** Medien der OBJE-Verweise direkt unter einem Knoten (fehlende Dateien werden übergangen) */
+    private function mediaItems(string $kind, array $node): array
+    {
+        $items = [];
+        foreach ($this->children($node, 'OBJE') as $o) {
+            $id = $this->mediaFor($o);
+            if ($id === null) continue;
+            $rec  = preg_match('/^@[^@]+@$/', $this->value($o)) ? ($this->objes[$this->value($o)] ?? $o) : $o;
+            $prim = strtoupper($this->value($this->child($o, '_PRIM')) ?: $this->value($this->child($rec, '_PRIM')));
+            $item = ['id' => $id, 'is_primary' => $prim === 'Y' || $prim === 'YES'];
+            if ($kind === 'person' && ($crop = $this->cropOf($o, $id))) $item['crop'] = $crop;
+            $items[] = $item;
+        }
+        return $items;
     }
 
     /**
@@ -1334,8 +1343,9 @@ final class GedcomImporter
         if (!$isPtr && $v !== '') $text = trim($v . ($text !== '' ? "\n" . $text : ''));   // Quelle als Freitext
         $page = $this->value($this->child($s, 'PAGE'));
         $url  = $this->value($this->child($s, 'WWW')) ?: $this->value($this->child($s, '_LINK'));
+        $media = $this->mediaItems('citation', $s);   // SOUR.OBJE: Scan des zitierten Eintrags
 
-        if (!$sourceId && $page === '' && $text === '' && $url === '') return false;
+        if (!$sourceId && $page === '' && $text === '' && $url === '' && !$media) return false;
 
         if ($seen !== null) {
             $key = ($sourceId ?? '') . '|' . DuplicateMatcher::normalize($page);
@@ -1346,6 +1356,7 @@ final class GedcomImporter
         $quay = $this->value($this->child($s, 'QUAY'));   // Verlässlichkeit 0–3
         $stmt->execute([$eventId, $sourceId, self::cut($page, 250), self::cut($text, 65000),
                         self::cut($url, 500), preg_match('/^[0-3]$/', $quay) ? (int) $quay : null, min($order, 255)]);
+        if ($media) $this->links->insert($this->citationKinds[$stmt], (int) $this->db->lastInsertId(), $media);
         $this->stats['citations']++;
         return true;
     }
@@ -1509,7 +1520,9 @@ final class GedcomImporter
 
     private function citationInsert(string $table, string $ownerCol = 'event_id'): PDOStatement
     {
-        return $this->db->prepare("INSERT INTO $table ($ownerCol, source_id, page, transcription, url, quality, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $this->db->prepare("INSERT INTO $table ($ownerCol, source_id, page, transcription, url, quality, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $this->citationKinds[$stmt] = MediaLinks::CITATION_KINDS[$table];   // für die Medien der Quellenangabe
+        return $stmt;
     }
 
     private function familyEventInsert(): PDOStatement

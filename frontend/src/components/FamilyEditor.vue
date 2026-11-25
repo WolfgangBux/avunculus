@@ -5,19 +5,17 @@ import LastChange from './LastChange.vue'
 import SaveStatus from './SaveStatus.vue'
 import Textarea from 'openvue/textarea'
 import Select from 'openvue/select'
-import InputText from 'openvue/inputtext'
 import PersonSearch from './PersonSearch.vue'
 import FamilyEvents from './FamilyEvents.vue'
 import MediaStrip from './MediaStrip.vue'
-import QualitySelect from './QualitySelect.vue'
-import SourcePicker from './SourcePicker.vue'
+import CitationFields from './CitationFields.vue'
 import {
   fetchFamily, createFamily, updateFamily, deleteFamily,
   addFamilyMember, removeFamilyMember, updateFamilyMember,
 } from '../api/families.js'
 import { useAsk, useNotify } from '../composables/feedback.js'
 import { useRecordAutosave } from '../composables/autosave.js'
-import { isFilledCitation } from '../personModel.js'
+import { isFilledCitation, citationMediaFromApi, citationToApi } from '../personModel.js'
 import { sexClass } from '../format.js'
 import { extractYear } from '../gedcom.js'
 import { t } from '../i18n/index.js'
@@ -38,10 +36,11 @@ const loading = ref(false)
 const form    = ref({ notes: '', citations: [], media: [] })
 const mediaOf = fam => (fam?.media ?? []).map(m => ({ id: m.id, title: m.title ?? '', mime_type: m.mime_type }))
 
-const blankCitation = () => ({ source_id: null, source_label: '', page: '', url: '', transcription: '', quality: null })
+const blankCitation = () => ({ source_id: null, source_label: '', page: '', url: '', transcription: '', quality: null, media: [] })
 // mit ID: das Backend gleicht ab, vorhandene Quellenangaben behalten ihre ID
 const citationsOf   = fam => (fam?.citations ?? []).map(c => ({
   id: c.id ?? null, source_id: c.source_id, source_label: c.source_abbreviation || c.source_title || '', page: c.page ?? '', url: c.url ?? '', transcription: c.transcription ?? '', quality: c.quality ?? null,
+  media: citationMediaFromApi(c),
 }))
 const adding  = ref(null)    // 'HUSB' | 'WIFE' | 'CHIL' | null
 
@@ -82,7 +81,7 @@ const { status, flush, discard } = useRecordAutosave({
   load(fam) {
     form.value = { notes: fam?.notes ?? '', citations: citationsOf(fam), media: mediaOf(fam) }
   },
-  payload: f => ({ notes: f.notes, citations: f.citations.map(c => ({ ...c })), media: f.media.map(m => ({ id: m.id })) }),
+  payload: f => ({ notes: f.notes, citations: f.citations.map(citationToApi), media: f.media.map(m => ({ id: m.id })) }),
   validate: () => true,
   save:    (id, data) => updateFamily(id, data),
   // neue Quellenangaben bekommen ihre ID (sonst beim nächsten Speichern doppelt); leere übergeht der Server
@@ -214,31 +213,7 @@ async function createWith(person) {
       <fieldset>
         <legend>{{ t('families.sources') }}</legend>
         <div v-for="(cit, ci) in form.citations" :key="ci" class="sub-card">
-          <div class="sub-grid">
-            <div class="form-group">
-              <label>{{ t('person.citations.sourceLabel') }}</label>
-              <SourcePicker v-model:source-id="cit.source_id" v-model:label="cit.source_label" />
-            </div>
-            <div class="form-group">
-              <label>{{ t('person.citations.pageLabel') }}</label>
-              <InputText v-model="cit.page" :placeholder="t('person.citations.pagePlaceholder')" fluid />
-            </div>
-            <Button v-if="canEdit" icon="pi pi-trash" severity="danger" text rounded class="sub-remove"
-              :aria-label="t('action.remove')" v-tooltip.top="t('action.remove')" @click="form.citations.splice(ci, 1)" />
-            <div class="form-group">
-              <label>{{ t('person.citations.quality.label') }}</label>
-              <QualitySelect v-model="cit.quality" />
-            </div>
-            <div class="form-group sub-wide">
-              <label>{{ t('person.citations.urlLabel') }}</label>
-              <InputText v-model="cit.url" type="url" placeholder="https://…" fluid />
-            </div>
-            <div class="form-group sub-wide">
-              <label>{{ t('person.citations.transcriptionLabel') }}</label>
-              <Textarea v-model="cit.transcription" rows="1" auto-resize
-                :placeholder="t('person.citations.transcriptionPlaceholder')" fluid />
-            </div>
-          </div>
+          <CitationFields :citation="cit" :id-prefix="`f${ci}_`" @remove="form.citations.splice(ci, 1)" />
         </div>
         <p v-if="!form.citations.length" class="field-hint">{{ t('families.sourcesHint') }}</p>
         <Button v-if="canEdit" :label="t('person.citations.add')" icon="pi pi-book" text size="small" class="slot-add"

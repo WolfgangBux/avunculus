@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Verknüpfungen zwischen Medien und Personen, Familien, Ereignissen und Quellen.
+ * Verknüpfungen zwischen Medien und Personen, Familien, Ereignissen, Quellen und Quellenangaben.
  * Jede Art hat eine eigene Tabelle (mit Fremdschlüsseln, damit Löschen aufräumt).
  *
  * Ein Medium in API-Antworten: { id, title, mime_type, width, height, is_primary } – bei Personen dazu
@@ -20,6 +20,19 @@ final class MediaLinks
         'event'        => ['event_media',        'event_id'],
         'family_event' => ['family_event_media', 'event_id'],
         'source'       => ['source_media',       'source_id'],
+        // Quellenangaben (SOUR.OBJE): Scan des zitierten Eintrags
+        'person_citation'       => ['person_citation_media',       'citation_id'],
+        'family_citation'       => ['family_citation_media',       'citation_id'],
+        'event_citation'        => ['event_citation_media',        'citation_id'],
+        'family_event_citation' => ['family_event_citation_media', 'citation_id'],
+    ];
+
+    /** Tabelle der Quellenangaben → Art ihrer Medien-Verknüpfungen */
+    public const CITATION_KINDS = [
+        'person_citations'       => 'person_citation',
+        'family_citations'       => 'family_citation',
+        'event_citations'        => 'event_citation',
+        'family_event_citations' => 'family_event_citation',
     ];
 
     public function __construct(private readonly PDO $db, private readonly int $treeId) {}
@@ -47,6 +60,19 @@ final class MediaLinks
             $out[(int) $r['owner_id']][] = self::item($r) + ($kind === 'person' ? ['crop' => self::cropFromRow($r)] : []);
         }
         return $out;
+    }
+
+    /** Quellenangaben (Liste mit 'id') um ihre Medien ergänzen; $citTable ist ein Schlüssel von CITATION_KINDS */
+    public function attachToCitations(string $citTable, array $citations): array
+    {
+        $media = $this->fetch(self::CITATION_KINDS[$citTable], array_column($citations, 'id'));
+        return array_map(fn($c) => [...$c, 'media' => $media[(int) $c['id']] ?? []], $citations);
+    }
+
+    /** Medien einer gespeicherten Quellenangabe ersetzen – nur wenn die Anfrage sie mitschickt */
+    public function saveForCitation(string $citTable, int $citationId, array $citation): void
+    {
+        if (array_key_exists('media', $citation)) $this->save(self::CITATION_KINDS[$citTable], $citationId, (array) $citation['media']);
     }
 
     public static function item(array $r): array

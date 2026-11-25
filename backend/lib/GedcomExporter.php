@@ -15,7 +15,7 @@ declare(strict_types=1);
  *   person_associations                 → ASSO + RELA (+ NOTE) unter INDI
  *   families/family_members/family_events → FAM, INDI.FAMS/FAMC (+ PEDI)
  *   sources / repositories              → SOUR (mit REPO/CALN/MEDI) / REPO
- *   *_citations                         → SOUR-Verweise mit PAGE, DATA.TEXT, WWW
+ *   *_citations                         → SOUR-Verweise mit PAGE, DATA.TEXT, WWW, OBJE
  *   places (Koordinaten, GOV)           → PLAC.MAP.LATI/LONG, PLAC._GOV (GEDCOM-L)
  *   media + *_media                     → OBJE-Datensätze (FILE media/…) und OBJE-Verweise (_PRIM Y = Hauptbild)
  */
@@ -38,6 +38,8 @@ final class GedcomExporter
     private array  $usedSources  = [];
     private array  $usedRepos    = [];
     private array  $usedMedia    = [];
+    /** @var array<string, array<int, list<array>>> Medien der Quellenangaben des aktuellen Stapels (loadCitationMedia) */
+    private array  $citationMedia = [];
 
     public function __construct(private readonly PDO $db, private readonly int $treeId, callable $out)
     {
@@ -135,6 +137,8 @@ final class GedcomExporter
             $pMedia  = $this->group("SELECT person_id, media_id, is_primary FROM person_media
                                      WHERE person_id IN ($in) ORDER BY person_id, sort_order, id", 'person_id');
             $evMedia = $this->group("SELECT event_id, media_id FROM event_media WHERE event_id IN ($evIds) ORDER BY event_id, sort_order, id", 'event_id');
+            $this->loadCitationMedia('event_citation_media', $evCits);
+            $this->loadCitationMedia('person_citation_media', $pCits);
 
             foreach ($persons as $p) {
                 $id = (int) $p['id'];
@@ -151,7 +155,7 @@ final class GedcomExporter
                     foreach ($assos[$e['id']] ?? [] as $a) {
                         if ($this->hasPerson($a['person_id'])) $this->association(2, '_ASSO', $a['person_id'], $a);
                     }
-                    foreach ($evCits[$e['id']] ?? [] as $c) $this->citation(2, $c);
+                    foreach ($evCits[$e['id']] ?? [] as $c) $this->citation(2, $c, 'event_citation_media');
                     $this->mediaRefs(2, $evMedia[$e['id']] ?? []);
                 }
 
@@ -168,7 +172,7 @@ final class GedcomExporter
                 foreach ($pAssos[$id] ?? [] as $a) {
                     if ($this->hasPerson($a['associate_id'])) $this->association(1, 'ASSO', $a['associate_id'], $a);
                 }
-                foreach ($pCits[$id] ?? [] as $c) $this->citation(1, $c);
+                foreach ($pCits[$id] ?? [] as $c) $this->citation(1, $c, 'person_citation_media');
                 $this->mediaRefs(1, $pMedia[$id] ?? []);
                 $this->text(1, 'NOTE', $p['notes']);
                 $this->stats['persons']++;
@@ -223,6 +227,8 @@ final class GedcomExporter
             $evAssos = $this->group("SELECT * FROM family_event_associations WHERE event_id IN ($evIds) ORDER BY event_id, sort_order, id", 'event_id');
             $fMedia  = $this->group("SELECT family_id, media_id FROM family_media WHERE family_id IN ($in) ORDER BY family_id, sort_order, id", 'family_id');
             $evMedia = $this->group("SELECT event_id, media_id FROM family_event_media WHERE event_id IN ($evIds) ORDER BY event_id, sort_order, id", 'event_id');
+            $this->loadCitationMedia('family_event_citation_media', $evCits);
+            $this->loadCitationMedia('family_citation_media', $fCits);
 
             foreach ($families as $f) {
                 $id = (int) $f['id'];
@@ -248,11 +254,11 @@ final class GedcomExporter
                     foreach ($evAssos[$e['id']] ?? [] as $a) {
                         if ($this->hasPerson($a['person_id'])) $this->association(2, '_ASSO', $a['person_id'], $a);
                     }
-                    foreach ($evCits[$e['id']] ?? [] as $c) $this->citation(2, $c);
+                    foreach ($evCits[$e['id']] ?? [] as $c) $this->citation(2, $c, 'family_event_citation_media');
                     $this->mediaRefs(2, $evMedia[$e['id']] ?? []);
                 }
 
-                foreach ($fCits[$id] ?? [] as $c) $this->citation(1, $c);
+                foreach ($fCits[$id] ?? [] as $c) $this->citation(1, $c, 'family_citation_media');
                 $this->mediaRefs(1, $fMedia[$id] ?? []);
                 $this->text(1, 'NOTE', $f['notes']);
                 $this->stats['families']++;
@@ -409,10 +415,20 @@ final class GedcomExporter
         return ($v < 0 ? $neg : $pos) . rtrim(rtrim(number_format(abs($v), 6, '.', ''), '0'), '.');
     }
 
-    /** Quellenangabe: Verweis mit Seite/Abschrift/Link oder – ohne Quelle – als Freitext */
-    private function citation(int $level, array $c): void
+    /** Medien der Quellenangaben eines Stapels (je Tabelle) → $citationMedia[Tabelle][Quellenangabe-ID] */
+    private function loadCitationMedia(string $table, array $citationsByOwner): void
+    {
+        $ids = implode(',', array_merge([0], ...array_map(fn($l) => array_column($l, 'id'), array_values($citationsByOwner))));
+        // $table ist fest im Code vorgegeben
+        $this->citationMedia[$table] = $this->group("SELECT citation_id, media_id FROM $table WHERE citation_id IN ($ids)
+                                                     ORDER BY citation_id, sort_order, id", 'citation_id');
+    }
+
+    /** Quellenangabe: Verweis mit Seite/Abschrift/Link/Medien oder – ohne Quelle – als Freitext */
+    private function citation(int $level, array $c, string $mediaTable): void
     {
         $sub = $level + 1;
+        $media = $this->citationMedia[$mediaTable][$c['id']] ?? [];
         if ($c['source_id']) {
             $this->usedSources[(int) $c['source_id']] = true;
             $this->line($level, 'SOUR', "@S{$c['source_id']}@");
@@ -421,12 +437,15 @@ final class GedcomExporter
                 $this->line($sub, 'DATA');
                 $this->text($sub + 1, 'TEXT', $c['transcription']);
             }
-        } else {
+        } elseif ($c['transcription'] || $c['page'] || $c['url']) {
             $this->text($level, 'SOUR', $c['transcription'] ?: ($c['page'] ?: $c['url']));
             if ($c['page'] && $c['transcription']) $this->line($sub, 'PAGE', $c['page']);
+        } else {
+            $this->line($level, 'SOUR');   // nur Medien
         }
         if ($c['url']) $this->line($sub, 'WWW', $c['url']);
         if (isset($c['quality']) && $c['quality'] !== null) $this->line($sub, 'QUAY', (string) $c['quality']);
+        $this->mediaRefs($sub, $media);
     }
 
     /** Mehrzeiliger Text: Zeilenumbrüche als CONT (lange Zeilen teilt line() per CONC) */

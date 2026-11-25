@@ -1,13 +1,12 @@
 <script setup>
 import Select from 'openvue/select'
-import SourcePicker from './SourcePicker.vue'
 import InputText from 'openvue/inputtext'
 import Textarea from 'openvue/textarea'
 import Button from 'openvue/button'
 import PlacePicker from './PlacePicker.vue'
 import MediaStrip from './MediaStrip.vue'
 import PersonPicker from './PersonPicker.vue'
-import QualitySelect from './QualitySelect.vue'
+import CitationFields from './CitationFields.vue'
 import { ref, computed } from 'vue'
 import { t } from '../i18n/index.js'
 import { toGedcomDate, normalizeGedcomDate, isValidGedcomDate } from '../gedcom.js'
@@ -21,7 +20,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['save', 'cancel', 'clear-error'])
 
-const blankCitation = () => ({ source_id: null, source_label: '', page: '', url: '', transcription: '', quality: null })
+const blankCitation = () => ({ source_id: null, source_label: '', page: '', url: '', transcription: '', quality: null, media: [] })
 
 // „1960-1970“ beim Wohnort als Zeitraum, sonst als unsichere Angabe (z. B. Heirat zwischen 1960 und 1970)
 const opts       = () => ({ period: props.model.event_type === 'RESI' })
@@ -114,31 +113,7 @@ const addAssociation = () => props.model.associations.push({ person_id: '', pers
     <div v-if="model.citations.length" class="event-sub">
       <div class="event-sub-title">{{ t('person.citations.title') }}</div>
       <div v-for="(cit, ci) in model.citations" :key="ci" class="sub-card">
-        <div class="sub-grid">
-          <div class="form-group">
-            <label>{{ t('person.citations.sourceLabel') }}</label>
-            <SourcePicker v-model:source-id="cit.source_id" v-model:label="cit.source_label" size="small" />
-          </div>
-          <div class="form-group">
-            <label>{{ t('person.citations.pageLabel') }}</label>
-            <InputText v-model="cit.page" size="small" :placeholder="t('person.citations.pagePlaceholder')" fluid />
-          </div>
-          <Button icon="pi pi-trash" severity="danger" text rounded size="small" class="sub-remove"
-            :aria-label="t('action.remove')" v-tooltip.top="t('action.remove')" @click="model.citations.splice(ci, 1)" />
-          <div class="form-group">
-            <label>{{ t('person.citations.quality.label') }}</label>
-            <QualitySelect v-model="cit.quality" size="small" />
-          </div>
-          <div class="form-group sub-wide">
-            <label>{{ t('person.citations.urlLabel') }}</label>
-            <InputText v-model="cit.url" type="url" size="small" placeholder="https://…" fluid />
-          </div>
-          <div class="form-group sub-wide">
-            <label>{{ t('person.citations.transcriptionLabel') }}</label>
-            <Textarea v-model="cit.transcription" rows="1" auto-resize
-              :placeholder="t('person.citations.transcriptionPlaceholder')" fluid />
-          </div>
-        </div>
+        <CitationFields :citation="cit" :id-prefix="`fe${ci}_`" small @remove="model.citations.splice(ci, 1)" />
       </div>
     </div>
     <!-- Beteiligte Personen (Trauzeugen …) -->
