@@ -1133,6 +1133,13 @@ button.branch-toggle:hover { background: var(--color-surface-alt); color: var(--
 }
 
 .fam-event-icon   { color: var(--color-primary); font-size: .8rem; }
+.fam-event[role="button"] { cursor: pointer; }
+.fam-event[role="button"]:hover { border-color: var(--color-border-strong); }
+.fam-event .event-chevron { margin: 0 .1rem 0 .25rem; }
+/* aufgeklappt: Leseansicht als eigene Zeile im selben Kasten */
+.fam-event-view { flex-basis: 100%; padding: .1rem .3rem .4rem 1.3rem; cursor: default; font-size: .85rem; }
+.fam-event-view .event-sub:first-child { margin-top: .3rem; }
+
 .fam-event-type   { font-weight: 600; }
 .fam-event-place  { font-size: .8rem; }
 .fam-event-sources { font-size: .75rem; color: var(--color-muted); display: inline-flex; align-items: center; gap: .2rem; }

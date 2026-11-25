@@ -206,7 +206,7 @@ async function createWith(person) {
       <!-- Ereignisse -->
       <fieldset>
         <legend>{{ t('family.events.label') }}</legend>
-        <FamilyEvents :family="family" bare @changed="changed" />
+        <FamilyEvents :family="family" bare person-links @changed="changed" @go-person="id => emit('show-person', { person_id: id })" />
       </fieldset>
 
       <!-- Quellen der Familie (nicht an ein Ereignis gebunden) -->

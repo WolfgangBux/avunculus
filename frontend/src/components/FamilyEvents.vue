@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import InputText from 'openvue/inputtext'
 import FamilyEventEditor from './FamilyEventEditor.vue'
 import Button from 'openvue/button'
+import CitationView from './CitationView.vue'
+import MediaStrip from './MediaStrip.vue'
 import { addFamilyEvent, updateFamilyEvent, deleteFamilyEvent } from '../api/families.js'
 import { toGedcomDate, isValidGedcomDate } from '../gedcom.js'
 import { useAsk, useNotify } from '../composables/feedback.js'
@@ -17,8 +19,9 @@ const FAMILY_EVENT_TYPES =['MARR', 'MARB', 'MARC', 'MARL', 'ENGA', 'DIV', 'DIVF'
 const props = defineProps({
   family: { type: Object, required: true },
   bare:   { type: Boolean, default: false },   // ohne Beschriftungsspalte (Familien-Editor)
+  personLinks: { type: Boolean, default: false },   // Beteiligte anklickbar (go-person)
 })
-const emit  = defineEmits(['changed'])
+const emit  = defineEmits(['changed', 'go-person'])
 
 const ask    = useAsk()
 const notify = useNotify()
@@ -38,6 +41,26 @@ function citationTitle(ev) {
     .map(c => [c.source_abbreviation || c.source_title, c.page].filter(Boolean).join(', ') || '–')
     .join('\n')
 }
+// Leseansicht je Ereignis (Klick auf die Zeile): Details, Quellenangaben samt Original, Beteiligte, Medien
+const expanded = ref({})
+const toggle   = id => { expanded.value = { ...expanded.value, [id]: !expanded.value[id] } }
+function viewFields(ev) {
+  const f = (label, value, key = '') => value ? [{ key, label, value }] : []
+  return [
+    ...(ev.event_type === 'EVEN' ? f(t('person.eventFields.descriptor'), ev.event_descriptor) : []),
+    ...f(t('person.eventFields.' + (ev.event_type === 'EVEN' ? 'description' : 'value')), ev.event_value),
+    ...f(t('person.eventFields.dateLabel'), ev.event_date && displayDate(ev.event_date) + (ev.event_time ? ', ' + ev.event_time : ''), 'date'),
+    ...f(t('person.eventFields.placeLabel'), ev.event_place),
+    ...f(t('family.events.husbAge'), ev.husb_age), ...f(t('family.events.wifeAge'), ev.wife_age),
+    ...f(t('person.eventFields.cause'), ev.cause), ...f(t('person.eventFields.agency'), ev.agency),
+    ...f(t('person.eventFields.religion'), ev.religion),
+    ...f(t('person.eventFields.notes'), ev.notes, 'notes'),
+  ]
+}
+// Quellenangaben der API für CitationView (Anzeigename der Quelle)
+const viewCitations = ev => (ev.citations ?? []).map(c => ({ ...c, source_label: c.source_abbreviation || c.source_title || '' }))
+const hasView = ev => viewFields(ev).length || ev.citations?.length || ev.associations?.length || ev.media?.length
+
 const error   = ref('')
 const saving  = ref(false)
 
@@ -122,7 +145,8 @@ async function remove(ev) {
     <div class="fam-events">
       <template v-for="ev in events" :key="ev.id">
         <!-- das gerade bearbeitete Ereignis wird an seiner Stelle durch das Formular ersetzt -->
-        <div v-if="editing?.id !== ev.id" class="fam-event">
+        <div v-if="editing?.id !== ev.id" :class="['fam-event', { expanded: expanded[ev.id] }]" role="button" tabindex="0"
+          :aria-expanded="!!expanded[ev.id]" @click="toggle(ev.id)" @keydown.enter.self="toggle(ev.id)">
           <i :class="['fam-event-icon', icon(ev.event_type)]" />
           <span class="fam-event-type">{{ eventTitle(ev) }}</span>
           <strong v-if="ev.event_value" class="fam-event-value">{{ ev.event_value }}</strong>
@@ -142,10 +166,39 @@ async function remove(ev) {
           <span v-if="ev.media?.length" class="fam-event-sources" v-tooltip.top="ev.media.map(m => m.title || '–').join('\n')">
             <i class="pi pi-image" /> {{ ev.media.length }}
           </span>
-          <span class="fam-event-actions">
+          <span class="fam-event-actions" @click.stop>
             <button v-if="canEdit" class="icon-btn" :title="t('action.edit')" :aria-label="t('action.edit')" @click="startEdit(ev)"><i class="pi pi-pencil" /></button>
             <button v-if="canEdit" class="icon-btn danger" :title="t('action.delete')" :aria-label="t('action.delete')" @click="remove(ev)"><i class="pi pi-trash" /></button>
+            <i :class="['pi', expanded[ev.id] ? 'pi-chevron-up' : 'pi-chevron-down', 'event-chevron']" />
           </span>
+
+          <!-- Leseansicht: alles zum Ereignis, ohne Eingabefelder -->
+          <div v-if="expanded[ev.id]" class="fam-event-view" @click.stop>
+            <dl v-if="viewFields(ev).length" class="view-fields">
+              <template v-for="f in viewFields(ev)" :key="f.label">
+                <dt>{{ f.label }}</dt><dd :class="{ 'gedcom-date': f.key === 'date', 'view-notes': f.key === 'notes' }">{{ f.value }}</dd>
+              </template>
+            </dl>
+            <div v-if="ev.citations?.length" class="event-sub">
+              <div class="event-sub-title">{{ t('person.citations.title') }}</div>
+              <CitationView v-for="cit in viewCitations(ev)" :key="cit.id" :citation="cit" />
+            </div>
+            <div v-if="ev.associations?.length" class="event-sub">
+              <div class="event-sub-title">{{ t('person.associations.title') }}</div>
+              <div class="relations-chips">
+                <button v-for="a in ev.associations" :key="a.id" type="button" class="rel-chip rel-chip-sm"
+                  :disabled="!personLinks || !a.person_id" @click="emit('go-person', a.person_id)">
+                  <span class="rel-name">{{ a.display_name || '–' }}</span>
+                  <span v-if="assoRole(a)" class="rel-years">{{ assoRole(a) }}</span>
+                </button>
+              </div>
+            </div>
+            <div v-if="ev.media?.length" class="event-sub">
+              <div class="event-sub-title">{{ t('media.title') }}</div>
+              <MediaStrip :model-value="ev.media" readonly />
+            </div>
+            <p v-if="!hasView(ev)" class="field-hint">{{ t('person.eventFields.noDetails') }}</p>
+          </div>
         </div>
         <FamilyEventEditor v-else :model="editing" :type-options="typeOptions"
           :error="error" :saving="saving"
