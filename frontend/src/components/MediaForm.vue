@@ -8,6 +8,7 @@ import SaveStatus from './SaveStatus.vue'
 import MediaThumb from './MediaThumb.vue'
 import MediaRegions from './MediaRegions.vue'
 import { updateMedia, deleteMedia, mediaFileUrl } from '../api/media.js'
+import { onMediaLinkClick } from '../composables/lightbox.js'
 import { toGedcomDate, isValidGedcomDate } from '../gedcom.js'
 import { displayDate } from '../format.js'
 import { useNotify, useAsk } from '../composables/feedback.js'
@@ -99,7 +100,7 @@ function openLink(l) {
 <template>
   <div class="card media-form">
     <div class="media-preview">
-      <!-- Bild mit markierten Personen (Ausschnitt fürs Vorschaubild); öffnen über „Öffnen“ darunter -->
+      <!-- Bild mit markierten Personen (Ausschnitt fürs Vorschaubild); Klick aufs Bild oder „Öffnen“ → Großansicht -->
       <MediaRegions v-if="kind === 'image'" :media="media" @saved="m => emit('saved', m)" />
       <iframe v-else-if="kind === 'pdf'" :src="fileUrl" :title="form.title || media.original_name" />
       <video v-else-if="kind === 'video'" :src="fileUrl" controls preload="metadata" />
@@ -110,7 +111,8 @@ function openLink(l) {
     <div class="media-file-line">
       <span class="muted">{{ fileInfo }}</span>
       <span class="media-file-actions">
-        <Button as="a" :href="fileUrl" target="_blank" rel="noopener" icon="pi pi-external-link" :label="t('media.open')" text size="small" />
+        <Button as="a" :href="fileUrl" target="_blank" rel="noopener" icon="pi pi-external-link" :label="t('media.open')" text size="small"
+          @click="onMediaLinkClick($event, media)" />
         <Button as="a" :href="mediaFileUrl(media.id, { download: true })" icon="pi pi-download" :label="t('media.download')" text size="small" />
       </span>
     </div>

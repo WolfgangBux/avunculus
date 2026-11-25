@@ -6,6 +6,7 @@ import PersonPicker from './PersonPicker.vue'
 import { mediaFileUrl, saveMediaRegion } from '../api/media.js'
 import { useNotify } from '../composables/feedback.js'
 import { useRegionDrag, regionBox } from '../composables/regionDrag.js'
+import { openLightbox } from '../composables/lightbox.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 
@@ -128,7 +129,8 @@ defineExpose({ edit })
 
 <template>
 <div class="media-regions">
-  <div :class="['region-stage', { editing: editing != null }]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
+  <div :class="['region-stage', { editing: editing != null }]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"
+    @click="editing == null && openLightbox(media)">
     <img ref="img" :src="mediaFileUrl(media.id)" :alt="media.title || ''" draggable="false" />
 
     <!-- Vorschläge aus der Bilddatei -->
