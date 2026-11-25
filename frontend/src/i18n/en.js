@@ -1144,10 +1144,8 @@ export default {
   },
   media: {
     region: {
-      title:      'Mark the person on the picture',
       persons:    'People on the picture:',
       mark:       'Mark on the picture',
-      markPerson: 'Mark the person on the picture (crop for the thumbnail)',
       change:     'Change marking',
       marked:     'Marked on the picture',
       rect:       'Rectangle',
@@ -1174,6 +1172,10 @@ export default {
       zoomIn:  'Zoom in (+)',
       zoomOut: 'Zoom out (−)',
       fit:     'Whole image (0)',
+      mark:    'Mark',
+      markOne: 'Mark: {{name}}',
+      markWhat: 'What to mark?',
+      panHint: 'Pan: Space + drag, middle mouse button or two fingers',
       hidePersons: 'Hide marked people',
       showPersons: 'Show marked people',
       newTab:  'Open in new tab',
@@ -1182,7 +1184,6 @@ export default {
     },
     citationRegion: {
       title:      'Mark the transcribed area',
-      button:     'Mark the transcribed area',
       hintDraw:   'Drag a frame around the passage the transcription reproduces.',
       hintAdjust: 'Move the frame, adjust its corners or drag a new one.',
       apply:      'Apply',

@@ -15,7 +15,6 @@ import PersonAssociations from './PersonAssociations.vue'
 import PersonRelations    from './PersonRelations.vue'
 import PersonPlacesMap    from './PersonPlacesMap.vue'
 import MediaStrip         from './MediaStrip.vue'
-import MediaRegionDialog  from './MediaRegionDialog.vue'
 import { createPerson, updatePerson } from '../api/persons.js'
 import { mediaThumbUrl } from '../api/media.js'
 import { isValidGedcomDate, extractYear, toGedcomDate } from '../gedcom.js'
@@ -41,8 +40,9 @@ const ask    = useAsk()
 const form    = ref(personFromApi(null))   // sex, restriction, notes, names, events, citations, associations, media
 const isEditing = computed(() => props.editPerson !== null)
 
-// Person auf einem Bild markieren: Ausschnitt kommt vom Server und gilt sofort fürs Vorschaubild
-const regionMedia = ref(null)
+// Person auf einem Bild markieren (Markierwerkzeug der Großansicht, nur gespeicherte Person):
+// der Ausschnitt kommt vom Server und gilt sofort fürs Vorschaubild
+const lightboxOpts = () => isEditing.value && canEdit.value ? { marks: { persons: personId.value, onSaved: onRegionSaved } } : {}
 function onRegionSaved(m) {
   const crop = m.links?.find(l => l.kind === 'person' && !l.citation && l.target_id === personId.value)?.crop ?? null
   form.value.media = form.value.media.map(x => x.id === m.id ? { ...x, crop } : x)
@@ -225,9 +225,7 @@ const relativesTree = () => emit('relatives-tree', { id: personId.value, name: h
     <!-- ── Medien der Person: Fotos, Dokumente; ★ = Hauptbild ── -->
     <fieldset>
       <legend>{{ t('media.title') }}</legend>
-      <MediaStrip v-model="form.media" allow-primary size="md" :regions="isEditing" @region="m => (regionMedia = m.id)" />
-      <MediaRegionDialog :visible="regionMedia != null" :media-id="regionMedia" :person-id="personId"
-        @update:visible="v => { if (!v) regionMedia = null }" @saved="onRegionSaved" />
+      <MediaStrip v-model="form.media" allow-primary size="md" :lightbox="lightboxOpts" />
       <p v-if="!form.media.length" class="field-hint">{{ t('media.personHint') }}</p>
     </fieldset>
 

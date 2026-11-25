@@ -1145,10 +1145,8 @@ export default {
   },
   media: {
     region: {
-      title:      'Person auf dem Bild markieren',
       persons:    'Personen auf dem Bild:',
       mark:       'Auf dem Bild markieren',
-      markPerson: 'Person auf dem Bild markieren (Ausschnitt fürs Vorschaubild)',
       change:     'Markierung ändern',
       marked:     'Auf dem Bild markiert',
       rect:       'Rechteck',
@@ -1175,6 +1173,10 @@ export default {
       zoomIn:  'Vergrößern (+)',
       zoomOut: 'Verkleinern (−)',
       fit:     'Ganzes Bild (0)',
+      mark:    'Markieren',
+      markOne: 'Markieren: {{name}}',
+      markWhat: 'Was markieren?',
+      panHint: 'Verschieben: Leertaste + Ziehen, mittlere Maustaste oder zwei Finger',
       hidePersons: 'Markierte Personen ausblenden',
       showPersons: 'Markierte Personen einblenden',
       newTab:  'In neuem Tab öffnen',
@@ -1183,7 +1185,6 @@ export default {
     },
     citationRegion: {
       title:      'Bereich der Transkription markieren',
-      button:     'Bereich der Transkription markieren',
       hintDraw:   'Rahmen um die Stelle aufziehen, die die Transkription wiedergibt.',
       hintAdjust: 'Rahmen verschieben, an den Ecken anpassen oder neu aufziehen.',
       apply:      'Übernehmen',

@@ -18,10 +18,8 @@ const props = defineProps({
   allowPrimary: { type: Boolean, default: false },   // Hauptbild wählbar (Person)
   size:         { type: String,  default: 'sm' },
   readonly:     { type: Boolean, default: false },   // nur anzeigen (Leseansicht)
-  regions:      { type: Boolean, default: false },   // Bereich markierbar (Person auf dem Bild, Stelle einer Quellenangabe)
-  regionLabel:  { type: String,  default: '' },      // Beschriftung des Markieren-Knopfs (Standard: Person markieren)
+  lightbox:     { type: Function, default: null },  // Medium → Optionen der Großansicht (z. B. was sich markieren lässt)
 })
-const emit = defineEmits(['region'])
 const notify = useNotify()
 
 const showPicker = ref(false)
@@ -77,16 +75,13 @@ async function onDrop(e) {
   <div :class="['media-strip', { dragging }]"
     @dragover.prevent="dragging = !readonly" @dragleave.self="dragging = false" @drop.prevent="!readonly && onDrop($event)">
     <div v-for="(m, i) in model" :key="m.id" :class="['media-strip-item', { primary: m.is_primary }]">
-      <a :href="mediaFileUrl(m.id)" target="_blank" rel="noopener" :title="m.title || ''" @click="onMediaLinkClick($event, m)">
+      <a :href="mediaFileUrl(m.id)" target="_blank" rel="noopener" :title="m.title || ''" @click="onMediaLinkClick($event, m, lightbox?.(m))">
         <MediaThumb :media="m" :size="size" />
       </a>
       <span v-if="!readonly" class="media-strip-actions">
         <button v-if="canEdit && (allowPrimary && isImage(m))" type="button" :class="['icon-btn', { active: m.is_primary }]"
           :title="m.is_primary ? t('media.primary') : t('media.makePrimary')" :aria-label="t('media.makePrimary')"
           @click="makePrimary(i)"><i :class="['pi', m.is_primary ? 'pi-star-fill' : 'pi-star']" /></button>
-        <button v-if="canEdit && regions && isImage(m)" type="button" :class="['icon-btn', { active: m.crop }]"
-          :title="regionLabel || t('media.region.markPerson')" :aria-label="regionLabel || t('media.region.markPerson')"
-          @click="emit('region', m)"><i class="pi pi-expand" /></button>
         <button v-if="canEdit" type="button" class="icon-btn danger" :title="t('action.remove')" :aria-label="t('action.remove')"
           @click="remove(i)"><i class="pi pi-times" /></button>
       </span>

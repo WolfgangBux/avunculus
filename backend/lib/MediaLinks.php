@@ -117,7 +117,8 @@ final class MediaLinks
 
     /**
      * Ausschnitt aus einer Eingabe prüfen und auf das Bild begrenzen; null = keiner bzw. ungültig.
-     * Zu kleine Ausschnitte (unter 1 % je Richtung) gelten als versehentlich.
+     * Zu kleine Ausschnitte (unter 0,2 % je Richtung) gelten als versehentlich – eine Zeile auf einem
+     * großen Scan kann aber deutlich unter 1 % hoch sein.
      */
     public static function normalizeCrop(mixed $c): ?array
     {
@@ -127,7 +128,7 @@ final class MediaLinks
         $t = max(0.0, min(1.0, (float) $c['top']));
         $w = min(1.0 - $l, (float) $c['width']);
         $h = min(1.0 - $t, (float) $c['height']);
-        if ($w < 0.01 || $h < 0.01) return null;
+        if ($w < 0.002 || $h < 0.002) return null;
         return ['left' => round($l, 6), 'top' => round($t, 6), 'width' => round($w, 6), 'height' => round($h, 6),
                 'shape' => ($c['shape'] ?? '') === 'ellipse' ? 'ellipse' : 'rect'];
     }

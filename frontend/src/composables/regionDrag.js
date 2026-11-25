@@ -8,7 +8,7 @@
  *
  * draft: ref auf { left, top, width, height, shape? } oder null; ein neuer Rahmen übernimmt die Form des alten.
  */
-const MIN = 0.02
+const MIN_PX = 8   // kleiner (auf dem Bildschirm) = versehentlicher Klick
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v))
 
 /** CSS-Position eines Rahmens */
@@ -52,8 +52,9 @@ export function useRegionDrag(img, draft, active = () => true) {
 
   function up() {
     if (!drag) return
-    // Versehentlicher Klick ohne Ziehen: alten Rahmen behalten
-    if (draft.value && (draft.value.width < MIN || draft.value.height < MIN)) draft.value = drag.orig
+    // Versehentlicher Klick ohne Ziehen: alten Rahmen behalten (gemessen am angezeigten, ggf. gezoomten Bild)
+    const r = img.value?.getBoundingClientRect()
+    if (draft.value && r && (draft.value.width * r.width < MIN_PX || draft.value.height * r.height < MIN_PX)) draft.value = drag.orig
     drag = null
   }
 

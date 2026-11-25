@@ -56,6 +56,9 @@ const kind    = computed(() => mime.value.startsWith('image/') && !/tiff|heic/.t
   : mime.value.startsWith('video/') ? 'video'
   : mime.value.startsWith('audio/') ? 'audio' : 'other')
 const fileUrl = computed(() => mediaFileUrl(props.media.id))
+// Großansicht: Bearbeiter können dort alle verknüpften Personen markieren (wie beim Klick aufs Bild)
+const lightboxOpts = () => kind.value === 'image' && canEdit.value
+  ? { marks: { persons: 'all', onSaved: m => emit('saved', m) } } : {}
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -112,7 +115,7 @@ function openLink(l) {
       <span class="muted">{{ fileInfo }}</span>
       <span class="media-file-actions">
         <Button as="a" :href="fileUrl" target="_blank" rel="noopener" icon="pi pi-external-link" :label="t('media.open')" text size="small"
-          @click="onMediaLinkClick($event, media)" />
+          @click="onMediaLinkClick($event, media, lightboxOpts())" />
         <Button as="a" :href="mediaFileUrl(media.id, { download: true })" icon="pi pi-download" :label="t('media.download')" text size="small" />
       </span>
     </div>
