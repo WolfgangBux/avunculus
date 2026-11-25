@@ -2060,6 +2060,8 @@ button.media-strip-add.media-thumb-md { width: 84px; height: 84px; }
 }
 .lightbox-menu-item:hover, .lightbox-menu-item:focus-visible { background: rgba(255, 255, 255, .12); outline: none; }
 .lightbox-menu-item .pi { font-size: .8rem; opacity: .75; }
+.lightbox-menu-new { border-top: 1px solid rgba(255, 255, 255, .12); margin-top: .2rem; border-radius: 0 0 6px 6px; }
+.lightbox-person-pick { flex: 1 1 16rem; min-width: 12rem; max-width: 22rem; position: relative; }
 .lightbox-menu-marked { margin-left: auto; color: #8fd19e; opacity: 1 !important; }
 .lightbox-pdf, .lightbox-video, .lightbox-audio { display: flex; align-items: center; justify-content: center; padding: 3.5rem 1.5rem; }
 .lightbox-pdf iframe { width: min(1100px, 100%); height: 100%; border: 0; background: #fff; border-radius: var(--radius-sm); }

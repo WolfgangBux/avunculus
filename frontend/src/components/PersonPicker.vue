@@ -13,6 +13,7 @@ const props = defineProps({
   label:       { type: String, default: '' },
   excludeIds:  { type: Array, default: () => [] },
   placeholder: { type: String, default: '' },
+  appendTo:    { type: String, default: 'body' },   // 'self': Vorschläge im Element (z. B. über der Großansicht)
 })
 const emit = defineEmits(['update:modelValue', 'update:label'])
 
@@ -49,6 +50,7 @@ function onClear()   { selected.value = null; emit('update:modelValue', '') }
     :suggestions="suggestions"
     :option-label="labelOf"
     :placeholder="placeholder"
+    :append-to="appendTo"
     :delay="250"
     dropdown
     force-selection

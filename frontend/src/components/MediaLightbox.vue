@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import PersonPicker from './PersonPicker.vue'
 import { lightbox } from '../composables/lightbox.js'
 import { useRegionDrag } from '../composables/regionDrag.js'
 import { isPersonLink, fileSuggestions } from '../composables/personRegion.js'
@@ -17,7 +18,8 @@ import { t } from '../i18n/index.js'
  * Markierwerkzeug (oben rechts, wenn marks erlaubt): Person bzw. Bereich der Transkription wählen,
  * dann zieht Ziehen einen Rahmen auf, verschiebt ihn oder ändert ihn an den Ecken; das Bild verschiebt
  * sich dann mit Leertaste + Ziehen, mittlerer Maustaste oder zwei Fingern. Ein Klick schließt dabei nicht;
- * Übernehmen speichert, Abbrechen/Esc kehrt zur Ansicht zurück.
+ * Übernehmen speichert, Abbrechen/Esc kehrt zur Ansicht zurück. Mit persons: 'all' lässt sich auch eine
+ * weitere Person markieren und zuordnen – sie wird dabei mit dem Bild verknüpft.
  *
  * PDF, Video und Audio im Browser-eigenen Anzeiger; schließen per Klick daneben oder Esc.
  */
@@ -131,15 +133,28 @@ const targets = computed(() => {
         applyLabel: t('action.save'), removeLabel: t('media.region.remove'), suggestions,
       })
     }
+    // weitere Person: markieren und aus der Personenliste zuordnen (wird mit dem Bild verknüpft)
+    if (m.persons === 'all') out.push({
+      key: 'new', isNew: true, title: t('media.lightbox.newPerson'), crop: null, shapes: ['rect', 'ellipse'],
+      hintDraw: t('media.lightbox.newPersonDraw'), hintAdjust: t('media.lightbox.newPersonAdjust'),
+      applyLabel: t('action.save'), suggestions,
+    })
   }
   return out
 })
 const edit = computed(() => targets.value.find(x => x.key === editingKey.value) ?? null)
 
+const newPersonId    = ref('')
+const newPersonLabel = ref('')
+// schon markierte Personen nicht anbieten (die ändert man über ihren eigenen Eintrag)
+const markedIds = computed(() => persons.value.map(p => p.target_id))
+
 function startEdit(key) {
   const tg = targets.value.find(x => x.key === key)
   if (!tg) return
   menuOpen.value   = false
+  newPersonId.value = ''
+  newPersonLabel.value = ''
   editingKey.value = key
   draft.value      = tg.crop ? { ...tg.crop, shape: tg.crop.shape ?? tg.shapes[0] } : null
 }
@@ -181,10 +196,14 @@ async function apply(crop) {
     stopEdit()
     return
   }
+  const personId = e.isNew ? Number(newPersonId.value) : e.personId
+  if (!personId) return
+  // neue Person: erst mit dem Bild verknüpfen (wird damit auch bei der Person als Medium geführt)
+  const link = e.isNew && !(full.value?.links ?? []).some(l => isPersonLink(l) && l.target_id === personId)
   saving.value = true
   try {
-    const m = await saveMediaRegion(media.value.id, e.personId, crop)
-    notify.success((crop ? t('media.region.saved') : t('media.region.removed'))
+    const m = await saveMediaRegion(media.value.id, personId, crop, { link })
+    notify.success((link ? t('media.lightbox.linked', { name: newPersonLabel.value }) : crop ? t('media.region.saved') : t('media.region.removed'))
                    + (m.file_written ? ' – ' + t('media.region.inFile') : ''))
     full.value = m
     marks.value.onSaved?.(m)
@@ -261,8 +280,9 @@ function onKey(e) {
     return
   }
   if (kind.value !== 'image' || !nat.value) return
+  if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName)) return   // z. B. Personensuche
   if (edit.value && e.key === ' ') { e.preventDefault(); space.value = e.type === 'keydown'; return }
-  if (e.type !== 'keydown' || /^(INPUT|TEXTAREA)$/.test(e.target?.tagName)) return
+  if (e.type !== 'keydown') return
   if (e.key === '+' || e.key === '=') zoomCenter(1.25)
   else if (e.key === '-') zoomCenter(0.8)
   else if (e.key === '0') reset()
@@ -363,8 +383,9 @@ const imgStyle = computed(() => ({
                 @click="onMarkTool"><i class="pi pi-expand" /></button>
               <div v-if="menuOpen" class="lightbox-menu" role="menu">
                 <div class="lightbox-menu-title">{{ t('media.lightbox.markWhat') }}</div>
-                <button v-for="tg in targets" :key="tg.key" type="button" role="menuitem" class="lightbox-menu-item" @click="startEdit(tg.key)">
-                  <i :class="['pi', tg.key === 'citation' ? 'pi-book' : 'pi-user']" />
+                <button v-for="tg in targets" :key="tg.key" type="button" role="menuitem"
+                  :class="['lightbox-menu-item', { 'lightbox-menu-new': tg.isNew }]" @click="startEdit(tg.key)">
+                  <i :class="['pi', tg.key === 'citation' ? 'pi-book' : tg.isNew ? 'pi-user-plus' : 'pi-user']" />
                   <span>{{ tg.title }}</span>
                   <i v-if="tg.crop" class="pi pi-check lightbox-menu-marked" :title="t('media.region.marked')" />
                 </button>
@@ -384,6 +405,10 @@ const imgStyle = computed(() => ({
             <span class="lightbox-edit-pan">{{ t('media.lightbox.panHint') }}</span>
           </p>
           <div class="lightbox-edit-actions">
+            <span v-if="edit.isNew" class="lightbox-person-pick">
+              <PersonPicker v-model="newPersonId" v-model:label="newPersonLabel" :exclude-ids="markedIds" append-to="self"
+                :placeholder="t('media.region.choose')" />
+            </span>
             <span v-if="edit.shapes.length > 1" class="lightbox-shapes" role="group" :aria-label="t('media.region.shape')">
               <button v-for="s in edit.shapes" :key="s" type="button" :class="['lightbox-chip', { active: shape === s }]"
                 :disabled="!draft" :aria-pressed="shape === s" @click="shape = s">{{ t('media.region.' + s) }}</button>
@@ -397,7 +422,8 @@ const imgStyle = computed(() => ({
             <button v-if="edit.crop" type="button" class="lightbox-chip danger" :disabled="saving" @click="apply(null)">
               <i class="pi pi-trash" /> {{ edit.removeLabel }}</button>
             <button type="button" class="lightbox-chip" :disabled="saving" @click="stopEdit">{{ t('action.cancel') }}</button>
-            <button type="button" class="lightbox-chip primary" :disabled="!draft || saving" @click="apply(draft)">
+            <button type="button" class="lightbox-chip primary" :disabled="!draft || saving || (edit.isNew && !newPersonId)"
+              :title="edit.isNew && !newPersonId ? t('media.lightbox.choosePerson') : undefined" @click="apply(draft)">
               <i :class="['pi', saving ? 'pi-spin pi-spinner' : 'pi-check']" /> {{ edit.applyLabel }}</button>
           </div>
         </div>
