@@ -5,6 +5,7 @@ import MediaThumb from './MediaThumb.vue'
 import MediaPickerDialog from './MediaPickerDialog.vue'
 import { mediaFileUrl, isImage, uploadMedia } from '../api/media.js'
 import { useNotify } from '../composables/feedback.js'
+import { onMediaLinkClick } from '../composables/lightbox.js'
 import { t } from '../i18n/index.js'
 import { canEdit } from '../auth.js'
 
@@ -76,7 +77,7 @@ async function onDrop(e) {
   <div :class="['media-strip', { dragging }]"
     @dragover.prevent="dragging = !readonly" @dragleave.self="dragging = false" @drop.prevent="!readonly && onDrop($event)">
     <div v-for="(m, i) in model" :key="m.id" :class="['media-strip-item', { primary: m.is_primary }]">
-      <a :href="mediaFileUrl(m.id)" target="_blank" rel="noopener" :title="m.title || ''">
+      <a :href="mediaFileUrl(m.id)" target="_blank" rel="noopener" :title="m.title || ''" @click="onMediaLinkClick($event, m)">
         <MediaThumb :media="m" :size="size" />
       </a>
       <span v-if="!readonly" class="media-strip-actions">

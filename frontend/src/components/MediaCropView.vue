@@ -2,11 +2,12 @@
 import { ref, computed } from 'vue'
 import { mediaFileUrl } from '../api/media.js'
 import { t } from '../i18n/index.js'
+import { onMediaLinkClick } from '../composables/lightbox.js'
 
 /**
  * Markierter Bereich eines Bilds in voller Auflösung (z. B. die zitierte Stelle im Kirchenbuch-Scan),
  * per CSS aus dem Originalbild geschnitten – anders als das Vorschaubild bleibt Schrift lesbar.
- * Ein Klick öffnet das ganze Bild.
+ * Ein Klick öffnet die Großansicht, zunächst auf diesen Bereich gezoomt.
  */
 const props = defineProps({
   media: { type: Object, required: true },   // { id, title, width, height, crop: { left, top, width, height } }
@@ -34,6 +35,7 @@ const image = computed(() => ({
 
 <template>
   <a :href="mediaFileUrl(media.id)" target="_blank" rel="noopener" class="media-crop" :style="frame"
+    @click="onMediaLinkClick($event, media, { crop: media.crop })"
     :title="(media.title ? media.title + ' – ' : '') + t('media.citationRegion.open')">
     <img :src="mediaFileUrl(media.id)" :alt="media.title || ''" :style="image" loading="lazy"
       @load="e => (natural = [e.target.naturalWidth, e.target.naturalHeight])" />

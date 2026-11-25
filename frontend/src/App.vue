@@ -37,6 +37,7 @@ import LoginDialog     from './components/LoginDialog.vue'
 import PasswordDialog  from './components/PasswordDialog.vue'
 import UserAdminDialog from './components/UserAdminDialog.vue'
 import ChangeLogDialog from './components/ChangeLogDialog.vue'
+import MediaLightbox from './components/MediaLightbox.vue'
 import CheckDialog from './components/CheckDialog.vue'
 import RelationshipDialog from './components/RelationshipDialog.vue'
 import ReportDialog from './components/ReportDialog.vue'
@@ -54,7 +55,7 @@ import { SOURCE_URL, APP_VERSION, LICENSES_URL } from './about.js'
 
 export default defineComponent({
   components: { PersonForm, PersonList, SourceForm, SourceList, FamilyModal, FamilyList, FamilyEditor, RepositoryList, RepositoryForm, PlaceList, PlaceForm, MediaList, MediaForm, StatisticsView, RelativesTreeDialog, TreeView, Toast, ConfirmDialog,
-                Menu, TieredMenu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, CheckDialog, RelationshipDialog, ReportDialog, GlobalSearch, UpdateDialog, SettingsDialog },
+                Menu, TieredMenu, TreeOpenDialog, TreeNewDialog, GedcomImportDialog, LoginDialog, PasswordDialog, UserAdminDialog, ChangeLogDialog, MediaLightbox, CheckDialog, RelationshipDialog, ReportDialog, GlobalSearch, UpdateDialog, SettingsDialog },
 
   setup() {
     const view = ref('tree')
@@ -710,6 +711,7 @@ export default defineComponent({
 <UserAdminDialog v-if="isAdmin" v-model:visible="showUsers" />
 <SettingsDialog v-if="isAdmin" v-model:visible="showSettings" />
 <ChangeLogDialog v-if="canEdit" />
+<MediaLightbox />
 <CheckDialog v-if="canEdit" />
 <RelationshipDialog />
 <ReportDialog />
